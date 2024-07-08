@@ -1,0 +1,326 @@
+{
+  "status": "success",
+  "data": {
+    "eventRankings": [
+      {
+        "id": 31957993,
+        "eventId": 134,
+        "timestamp": "2024-06-20T06:06:00.287Z",
+        "rank": 5000,
+        "score": 10764,
+        "userId": "440095981302546443",
+        "userName": "◇初心者◇",
+        "userCard": {
+          "level": 41,
+          "cardId": 400,
+          "masterRank": 0,
+          "defaultImage": "special_training",
+          "specialTrainingStatus": "done"
+        },
+        "userProfile": {
+          "word": "推し同担さん大歓迎です！！",
+          "userId": "440095981302546443",
+          "twitterId": "",
+          "profileImageType": "leader"
+        },
+        "userCheerfulCarnival": {},
+        "userProfileHonors": [
+          {
+            "seq": 1,
+            "honorId": 65,
+            "honorLevel": 3,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 2,
+            "honorId": 37,
+            "honorLevel": 3,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 3,
+            "honorId": 45,
+            "honorLevel": 3,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          }
+        ]
+      },
+      {
+        "id": 31958906,
+        "eventId": 134,
+        "timestamp": "2024-06-20T06:30:01.167Z",
+        "rank": 5000,
+        "score": 96460,
+        "userId": "100107999464427534",
+        "userName": "みかん",
+        "userCard": {
+          "level": 60,
+          "cardId": 196,
+          "masterRank": 2,
+          "defaultImage": "special_training",
+          "specialTrainingStatus": "done"
+        },
+        "userProfile": {
+          "word": "ただし、洋梨である",
+          "userId": "100107999464427534",
+          "twitterId": "226",
+          "profileImageType": "leader"
+        },
+        "userCheerfulCarnival": {},
+        "userProfileHonors": [
+          {
+            "seq": 1,
+            "honorId": 116,
+            "honorLevel": 2,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 2,
+            "honorId": 70,
+            "honorLevel": 7,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 3,
+            "honorId": 223,
+            "honorLevel": 6,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          }
+        ]
+      },
+      {
+        "id": 31960073,
+        "eventId": 134,
+        "timestamp": "2024-06-20T07:00:00.386Z",
+        "rank": 5000,
+        "score": 152810,
+        "userId": "497600981628227587",
+        "userName": "のの",
+        "userCard": {
+          "level": 50,
+          "cardId": 944,
+          "masterRank": 0,
+          "defaultImage": "special_training",
+          "specialTrainingStatus": "done"
+        },
+        "userProfile": {
+          "word": "",
+          "userId": "497600981628227587",
+          "twitterId": "",
+          "profileImageType": "leader"
+        },
+        "userCheerfulCarnival": {},
+        "userProfileHonors": [
+          {
+            "seq": 1,
+            "honorId": 1182001,
+            "honorLevel": 1,
+            "bondsHonorWordId": 1182001,
+            "profileHonorType": "bonds",
+            "bondsHonorViewType": "normal"
+          },
+          {
+            "seq": 2,
+            "honorId": 69,
+            "honorLevel": 1,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 3,
+            "honorId": 77,
+            "honorLevel": 2,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          }
+        ]
+      },
+      {
+        "id": 31961243,
+        "eventId": 134,
+        "timestamp": "2024-06-20T07:30:00.782Z",
+        "rank": 5000,
+        "score": 179845,
+        "userId": "266527302838005769",
+        "userName": "^^",
+        "userCard": {
+          "level": 60,
+          "cardId": 550,
+          "masterRank": 0,
+          "defaultImage": "original",
+          "specialTrainingStatus": "not_doing"
+        },
+        "userProfile": {
+          "word": "皆伝めんどい",
+          "userId": "266527302838005769",
+          "twitterId": "",
+          "profileImageType": "leader"
+        },
+        "userCheerfulCarnival": {},
+        "userProfileHonors": []
+      },
+      {
+        "id": 31962420,
+        "eventId": 134,
+        "timestamp": "2024-06-20T08:00:00.656Z",
+        "rank": 5000,
+        "score": 201701,
+        "userId": "358373782698754057",
+        "userName": "idk",
+        "userCard": {
+          "level": 50,
+          "cardId": 945,
+          "masterRank": 0,
+          "defaultImage": "special_training",
+          "specialTrainingStatus": "done"
+        },
+        "userProfile": {
+          "word": "",
+          "userId": "358373782698754057",
+          "twitterId": "",
+          "profileImageType": "leader"
+        },
+        "userCheerfulCarnival": {},
+        "userProfileHonors": [
+          {
+            "seq": 1,
+            "honorId": 77,
+            "honorLevel": 3,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 2,
+            "honorId": 1192001,
+            "honorLevel": 2,
+            "bondsHonorWordId": 1192001,
+            "profileHonorType": "bonds",
+            "bondsHonorViewType": "normal"
+          },
+          {
+            "seq": 3,
+            "honorId": 115,
+            "honorLevel": 1,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          }
+        ]
+      },
+      {
+        "id": 31963600,
+        "eventId": 134,
+        "timestamp": "2024-06-20T08:30:00.791Z",
+        "rank": 5000,
+        "score": 220307,
+        "userId": "196029072123863051",
+        "userName": "Remors",
+        "userCard": {
+          "level": 60,
+          "cardId": 404,
+          "masterRank": 2,
+          "defaultImage": "special_training",
+          "specialTrainingStatus": "done"
+        },
+        "userProfile": {
+          "word": "CN，音ゲー苦手。25時推し！！！",
+          "userId": "196029072123863051",
+          "twitterId": "",
+          "profileImageType": "leader"
+        },
+        "userCheerfulCarnival": {},
+        "userProfileHonors": [
+          {
+            "seq": 1,
+            "honorId": 1192001,
+            "honorLevel": 2,
+            "bondsHonorWordId": 1192001,
+            "profileHonorType": "bonds",
+            "bondsHonorViewType": "normal"
+          },
+          {
+            "seq": 2,
+            "honorId": 77,
+            "honorLevel": 3,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 3,
+            "honorId": 73,
+            "honorLevel": 3,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          }
+        ]
+      },
+      {
+        "id": 31964544,
+        "eventId": 134,
+        "timestamp": "2024-06-20T08:54:00.290Z",
+        "rank": 5000,
+        "score": 233065,
+        "userId": "5236582479187976",
+        "userName": "温泉のセカイ",
+        "userCard": {
+          "level": 50,
+          "cardId": 639,
+          "masterRank": 0,
+          "defaultImage": "special_training",
+          "specialTrainingStatus": "done"
+        },
+        "userProfile": {
+          "word": "み",
+          "userId": "5236582479187976",
+          "twitterId": "yunono",
+          "profileImageType": "leader"
+        },
+        "userCheerfulCarnival": {},
+        "userProfileHonors": [
+          {
+            "seq": 1,
+            "honorId": 82,
+            "honorLevel": 8,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 2,
+            "honorId": 86,
+            "honorLevel": 5,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          },
+          {
+            "seq": 3,
+            "honorId": 90,
+            "honorLevel": 5,
+            "bondsHonorWordId": 0,
+            "profileHonorType": "normal",
+            "bondsHonorViewType": "none"
+          }
+        ]
+      }
+    ]
+  },
+  "message": null
+}

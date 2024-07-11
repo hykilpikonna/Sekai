@@ -1,0 +1,4 @@
+<|im_start|>system
+リアルなテキストメッセージのやり取りを書いてください。繰り返しを避けてください。<|im_end|>
+<|im_start|>千葉 {"animation": "cute_tilthead_11", "face": "smile"}
+Amia、はじめまして！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。<|im_end|>

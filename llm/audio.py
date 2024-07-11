@@ -11,7 +11,7 @@ from clean import BASE_DIR
 
 SR_TARGET = 22050
 FFMPEG_PATH = 'ffmpeg'
-OUT_BASE = Path(r'G:\custom_character_voice_full')
+OUT_BASE = Path(r'G:\custom_character_voice')
 FULL_RES = 'full' in OUT_BASE.name
 
 
@@ -54,10 +54,6 @@ def normalize(inp: Path, output: Path) -> bool:
 
 speakers = [v['givenName'] for v in json.loads((Path(__file__).parent / 'data' / 'gameCharacters.json').read_text('utf-8'))]
 
-
-# Load the audio index
-print("Building audio index...")
-audio_index = build_audio_index()
 
 
 def proc_one(chat: dict) -> str | None:
@@ -116,5 +112,9 @@ def gather_voice_audio():
 
 
 if __name__ == '__main__':
+    # Load the audio index
+    print("Building audio index...")
+    audio_index = build_audio_index()
+
     OUT_BASE.mkdir(exist_ok=True, parents=True)
     gather_voice_audio()

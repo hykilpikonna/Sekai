@@ -95,24 +95,29 @@ def gen_response(history: list[ChatLog]) -> ChatLog:
     # Parse speaker, animation, and face from the response text
     response_text = response_text.rsplit("<|im_start|>", 1)[-1].replace("<|im_end|>", "")
     lines = response_text.splitlines()
-    idx = lines[0].index('{')
+    idx = lines[0].find('{')
     if idx > 0:
-        speaker = lines[0][:idx]
+        speaker = lines[0][:idx].strip()
         jsn = json.loads(lines[0][idx:])
         face, animation = jsn['face'], jsn['animation']
-        try:
-            a1, a2, a3 = animation.split("_")
-            animation = f"w-{a1}-{a2}{a3}"
-        except Exception:
-            pass
     else:
         speaker = lines[0]
         face, animation = None, None
 
-    text = '\n'.join(lines[1:])
+    afmt = animation
+    if afmt:
+        try:
+            a1, a2, a3 = animation.split("_")
+            afmt = f"w-{a1}{a3}-{a2}"
+        except Exception:
+            pass
 
-    return ChatLog(speaker=speaker.strip(), text=text.strip(), animation=animation.strip(), face=face.strip(),
-                   display_text=f"${{anim:{animation}}}${{face:face_{face}_01}}${{title:{speaker}}}{text}")
+
+
+    text = '\n'.join(lines[1:]).strip()
+
+    return ChatLog(speaker=speaker, text=text, animation=animation, face=face,
+                   display_text=f"${{anim:{afmt}}}${{face:face_{face}_01}}${{title:{speaker}}}{text}")
 
 
 @app.post("/llm/create")

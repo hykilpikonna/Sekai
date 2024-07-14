@@ -181,6 +181,11 @@ def get_templates():
     }
 
 
+@app.get('/llm/health')
+def health():
+    return {"status": "ok"}
+
+
 if __name__ == '__main__':
     agupa = argparse.ArgumentParser()
     agupa.add_argument("--host", default="0.0.0.0")

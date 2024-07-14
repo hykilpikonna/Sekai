@@ -17,13 +17,13 @@ class BG(BaseModel):
 
 
 BG_LIST = [
-    BG(img="sekai0.jpg", bgm="sekai0.mp3"),
-    BG(img="sekai1.jpg", bgm="sekai1.mp3"),
-    BG(img="bg_e000401.jpg", bgm="DayHappy.mp3"),
-    BG(img="bg_e000402.jpg", bgm="NightRelax.mp3"),
-    BG(img="bg_e000403.jpg", bgm="RelaxDzDz.mp3"),
-    BG(img="bg_e000405.jpg", bgm="NightRelax.mp3"),
-    BG(img="bg_e001701.jpg", bgm="DayHappy.mp3"),
+    BG(img="sekai0.png", bgm="sekai0.mp3"),
+    BG(img="sekai1.png", bgm="sekai1.mp3"),
+    BG(img="bg_e000401.png", bgm="DayHappy.mp3"),
+    BG(img="bg_e000402.png", bgm="NightRelax.mp3"),
+    BG(img="bg_e000403.png", bgm="RelaxDzDz.mp3"),
+    BG(img="bg_e000405.png", bgm="NightRelax.mp3"),
+    BG(img="bg_e001701.png", bgm="DayHappy.mp3"),
 ]
 for f in BG_LIST:
     f.img = f"/misc/bg/img/{f.img}"

@@ -31,6 +31,8 @@ log = setup_logger()
 
 # Directory to store session data
 db_dir = ensure_dir(Path(__file__).parent / "database")
+animations = {v for v in (Path(__file__).parent / 'animations.txt').read_text('utf-8').splitlines() if v}
+
 
 def mk_model():
     m = AutoModelForCausalLM.from_pretrained(
@@ -120,7 +122,16 @@ def gen_response(history: list[ChatLog]) -> ChatLog:
         except Exception:
             pass
 
+        if afmt not in animations:
+            lst = rapidfuzz.process.extract(afmt, animations)
+            log.warn(f'Animation not found, closest animation: {animation} -> {lst[0]}')
+            afmt = lst[0][0]
 
+        # If the animation is the same as the previous, use the next animation
+        if len(history) >= 2 and afmt in history[-2].display_text:
+            lst = rapidfuzz.process.extract(afmt, animations)
+            afmt = lst[1][0]
+            log.warn(f'> Repeating animation, closest animation: {animation} -> {lst[1]}')
 
     text = '\n'.join(lines[1:]).strip()
 

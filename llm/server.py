@@ -85,7 +85,8 @@ def gen_response(history: list[ChatLog]) -> ChatLog:
     generated_ids = model.generate(
         **model_inputs,
         max_new_tokens=128,
-        eos_token_id=tokenizer.eos_token_id
+        eos_token_id=tokenizer.eos_token_id,
+        pad_token_id=tokenizer.eos_token_id,
     )
 
     response_text = tokenizer.decode(generated_ids[0], skip_special_tokens=False)

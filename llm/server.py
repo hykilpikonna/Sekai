@@ -13,8 +13,19 @@ from hypy_utils.logging_utils import setup_logger
 from pydantic import BaseModel, Field
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# Allow all CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 model_path = "/mnt/data/menci/llm/export"
 log = setup_logger()

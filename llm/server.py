@@ -3,27 +3,17 @@ import json
 import uuid
 from pathlib import Path
 
+import rapidfuzz.process
 import torch
 import uvicorn
 # from auto_gptq import AutoGPTQForCausalLM
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 from hypy_utils import ensure_dir, write_json
 from hypy_utils.logging_utils import setup_logger
 from pydantic import BaseModel, Field
-from starlette.middleware.cors import CORSMiddleware
 from transformers import AutoTokenizer, AutoModelForCausalLM
-import rapidfuzz.process
-
-app = FastAPI()
-
-# Allow all CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from server_share import app
+import server_misc
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 model_path = "/mnt/data/menci/llm/export"

@@ -222,5 +222,19 @@ if __name__ == '__main__':
             animation="cute_tilthead_11",
             face="smile"
         )])
+
+        # Time 10 responses
+        import time
+        start = time.time()
+        for _ in range(10):
+            resp = gen_response([ChatLog(
+                speaker="千葉",
+                text="瑞希、はじめまして！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。",
+                animation="cute_tilthead_11",
+                face="smile"
+            )])
+            print(resp.speaker, ":", resp.text)
+
+        print(f"Time taken: {(time.time() - start) / 10:.2f}s per response")
     else:
         uvicorn.run(app, host=args.host, port=args.port)

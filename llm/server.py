@@ -1,19 +1,18 @@
 import argparse
 import json
-import os
-from typing import Optional
 import uuid
 from pathlib import Path
 
-import requests
+import torch
 import uvicorn
+# from auto_gptq import AutoGPTQForCausalLM
 from fastapi import FastAPI, HTTPException
 from hypy_utils import ensure_dir, write_json
 from hypy_utils.logging_utils import setup_logger
 from pydantic import BaseModel, Field
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 from starlette.middleware.cors import CORSMiddleware
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import rapidfuzz.process
 
 app = FastAPI()
 
@@ -32,6 +31,15 @@ log = setup_logger()
 
 # Directory to store session data
 db_dir = ensure_dir(Path(__file__).parent / "database")
+
+def mk_model():
+    m = AutoModelForCausalLM.from_pretrained(
+    # m = AutoGPTQForCausalLM.from_quantized(
+        model_path, torch_dtype=torch.float16, device_map="auto",
+        attn_implementation="flash_attention_2"
+    ).to(device)
+    t = AutoTokenizer.from_pretrained(model_path)
+    return m, t
 
 
 class GenerateResponseRequest(BaseModel):
@@ -194,8 +202,7 @@ if __name__ == '__main__':
     args = agupa.parse_args()
 
     # Load model and tokenizer
-    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto", device_map="auto").to(device)
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model, tokenizer = mk_model()
 
     if args.action == 'test':
         gen_response([ChatLog(

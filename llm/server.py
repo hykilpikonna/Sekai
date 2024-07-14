@@ -168,6 +168,15 @@ def get_templates():
                 ),
                 "description": "瑞希の従妹の千葉として会話を始める。"
             },
+            {
+                "log": ChatLog(
+                    speaker="彩花",
+                    text="こんにちは、暁山さん！はじめまして。いつもニーゴの音楽聴いてるよ。会えて本当に嬉しい！",
+                    animation="cute_tilthead_11",
+                    face="smile"
+                ),
+                "description": "瑞希ファンの彩花"
+            },
         ]
     }
 

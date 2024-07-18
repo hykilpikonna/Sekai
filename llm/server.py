@@ -58,6 +58,10 @@ class SavedSession(BaseModel):
     history: list[ChatLog]
 
 
+class GetHistoryRequest(BaseModel):
+    id: str
+
+
 def build_prompt(history: list[ChatLog]) -> str:
     """
     Build prompt from historical chat log
@@ -158,6 +162,20 @@ def generate_response(request: GenerateResponseRequest):
 
     write_json(sf, session_data)
     return session_data.history[-1]
+
+
+@app.post("/llm/history")
+def get_history(request: GetHistoryRequest) -> list[ChatLog]:
+    """
+    Get the history of a session
+    :return: List of chat logs
+    """
+    sf = db_dir / f"{request.id}.json"
+    if not sf.exists():
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session_data = SavedSession.parse_file(sf)
+    return session_data.history
 
 
 @app.get("/llm/templates")

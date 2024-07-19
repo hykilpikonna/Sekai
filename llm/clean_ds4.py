@@ -229,6 +229,11 @@ if __name__ == '__main__':
     for k, v in face_cls_data.items():
         write_json(f'data/cls/face/{k}.json', v)
 
+        # Major classes only (remove _\d+)
+        for f in v:
+            f['label'] = re.sub(r'_\d+$', '', f['label'])
+        write_json(f'data/cls/face/{k}_major_classes.json', v)
+
     # Animation Classification dataset
     # [{"text": "text", "label": "w-01_01"}, ...]
     anim_cls_data = []

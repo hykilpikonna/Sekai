@@ -3,6 +3,7 @@ This script is used to clean the text story data from Project Sekai and prepare 
 """
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 from hypy_utils import write_json
@@ -186,15 +187,27 @@ if __name__ == '__main__':
     # [{"text": "text", "label": "face_01"}, ...]
     face_cls_data = []
     for chat in all_parsed:
-        if 'face' not in chat:
+        face = chat.get('face')
+        if not face:
             continue
-        face = chat['face']
-        face = re.sub('^(face_)*(nc|idol_|night_|wonder_|sg|os|band_|street_)', '', face)
+        face = re.sub('^(face_)*(nc|idol_|night_|wonder_|sg|os|band_|street_)', '', face).strip()
         face_cls_data.append({
             "text": chat['text'],
             "label": face
         })
+    # Filter out faces that are used less than 50 times
+    count = Counter([d['label'] for d in face_cls_data])
+    face_cls_data = [d for d in face_cls_data if count[d['label']] > 50]
+    select_faces = set(d['label'] for d in face_cls_data)
+    print(f"Number of faces: {len(select_faces)}")
     write_json('data/cls/face_data.json', face_cls_data)
+
+    # Write another face dataset with _\d+ removed
+    for f in face_cls_data:
+        f['label'] = re.sub(r'_\d+$', '', f['label'])
+    print(f"Number of faces (w/o _\\d+): {len(set(d['label'] for d in face_cls_data))}")
+    print(set(d['label'] for d in face_cls_data))
+    write_json('data/cls/face_data_major_classes.json', face_cls_data)
 
     # Face classification for each speaker separately
     face_cls_data = {}
@@ -206,6 +219,9 @@ if __name__ == '__main__':
         face = re.sub('^(face_)*(nc|idol_|night_|wonder_|sg|os|band_|street_)', '', face)
         if speaker not in face_cls_data:
             face_cls_data[speaker] = []
+        # If it's not in the filtered >50 times list, skip
+        if face not in select_faces:
+            continue
         face_cls_data[speaker].append({
             "text": chat['text'],
             "label": face

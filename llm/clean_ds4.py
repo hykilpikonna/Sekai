@@ -60,17 +60,20 @@ def find_chara(talk) -> str | None:
 
 
 def normalize_anim(name: str) -> str | None:
-    if name is None:
+    if not name or len(name) < 2:
         return None
     # If it's a face
-    if name.startswith('face_'):
-        # Remove face prefix
-        name = name[5:]
+    if 'face_' in name:
+        # Remove face_ prefix by find (it could be 2D_face_...)
+        name = name[name.find('face_') + 5:]
         # Remove _\d+
         # name = re.sub(r'_\d+$', '', name)
+    # Special case... typo from the original dataset:
+    elif name.startswith('face _'):
+        name = name[6:].strip()
     # If it's a motion animation
-    if name.startswith('w-'):
-        # Remove w- prefix
+    elif name[1] == '-':
+        # Remove w- or m- or s- prefix
         name = name[2:]
         # Normalize to category_name_number
         # If it's the new format w-(\w+)-(\w+)(\d+)
@@ -82,7 +85,9 @@ def normalize_anim(name: str) -> str | None:
         if old_format:
             return f"{old_format.group(1)}_{old_format.group(3)}_{old_format.group(2)}"
         # Warning
-        print(f'Unknown format: {name}')
+        print(f'Unknown animation: {name}')
+    else:
+        print(f'Unknown animation: {name}')
     return name
 
 

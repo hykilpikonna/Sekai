@@ -6,17 +6,15 @@ from pathlib import Path
 import rapidfuzz.process
 import torch
 import uvicorn
-# from auto_gptq import AutoGPTQForCausalLM
 from fastapi import HTTPException
 from hypy_utils import ensure_dir, write_json
 from hypy_utils.logging_utils import setup_logger
 from pydantic import BaseModel, Field
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from server_share import app
 import server_misc
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-model_path = "/mnt/data/menci/llm/export"
+model_path = "/mnt/data/menci/llm/export/ds4-instruct-1"
 log = setup_logger()
 
 # Directory to store session data
@@ -24,14 +22,36 @@ db_dir = ensure_dir(Path(__file__).parent / "database")
 animations = {v for v in (Path(__file__).parent / 'animations.txt').read_text('utf-8').splitlines() if v}
 
 
-def mk_model():
-    m = AutoModelForCausalLM.from_pretrained(
-    # m = AutoGPTQForCausalLM.from_quantized(
-        model_path, torch_dtype=torch.float16, device_map="auto",
-        attn_implementation="flash_attention_2"
-    ).to(device)
-    t = AutoTokenizer.from_pretrained(model_path)
-    return m, t
+class LLM:
+    dev: str = "cuda:0" if torch.cuda.is_available() else "cpu"
+    m: AutoModelForCausalLM
+    t: AutoTokenizer
+    start = "<|im_start|>"
+    end = "<|im_end|>"
+    params: dict
+
+    def __init__(self):
+        # Load models
+        self.m = AutoModelForCausalLM.from_pretrained(
+            # m = AutoGPTQForCausalLM.from_quantized(
+            model_path, torch_dtype=torch.float16, device_map="auto",
+            attn_implementation="flash_attention_2"
+        ).to(self.dev)
+        self.t = AutoTokenizer.from_pretrained(model_path)
+        self.params = {
+            # "eos_token_id": self.t.eos_token_id,
+            "pad_token_id": self.t.pad_token_id,
+            "max_new_tokens": 64,
+            "temperature": 0.9,
+            # "top_p": 0.9,
+            # "top_k": 50,
+            # "repetition_penalty": 1.2
+        }
+
+    def gen(self, prompt: str) -> str:
+        model_inputs = self.t(prompt, return_tensors="pt").to(self.dev)
+        return self.t.decode(self.m.generate(**model_inputs, **self.params)[0], skip_special_tokens=False)
+
 
 
 class GenerateResponseRequest(BaseModel):
@@ -62,75 +82,109 @@ class GetHistoryRequest(BaseModel):
     id: str
 
 
-def build_prompt(history: list[ChatLog]) -> str:
+def build_prompt(history: list[ChatLog], force_speaker: str | None = None) -> str:
     """
     Build prompt from historical chat log
     """
-    prompt = """
+    prompt = f"""
 <|im_start|>system
-リアルなテキストメッセージのやり取りを書いてください。繰り返しを避けてください。<|im_end|>""".strip()
+プロセカのメンバー間の会話のダイアログを書いてください。繰り返しを避けてください。<|im_end|>""".strip()
     for log in history:
         animation = f' {{"animation": "{log.animation}", "face": "{log.face}"}}' if log.animation else ""
         prompt += f"""
 <|im_start|>{log.speaker}{animation}
 {log.text}<|im_end|>"""
 
+    if force_speaker:
+        prompt += f"""\n<|im_start|>{force_speaker}"""
+
     return prompt
 
 
-def gen_response(history: list[ChatLog]) -> ChatLog:
+def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> list[ChatLog]:
     """
     Generate a response given the history and user input
     """
-    prompt = build_prompt(history)
+    prompt = build_prompt(history, force_speaker)
     log.debug(prompt)
-    model_inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-    generated_ids = model.generate(
-        **model_inputs,
-        max_new_tokens=128,
-        eos_token_id=tokenizer.eos_token_id,
-        pad_token_id=tokenizer.eos_token_id,
-    )
+    resp = llm.gen(prompt)
+    log.debug(resp)
 
-    response_text = tokenizer.decode(generated_ids[0], skip_special_tokens=False)
-    log.debug(response_text)
+    # Remove input text from response
+    resp = resp[len(prompt):].strip()
+
+    # Loop through the response and parse each <|im_start|>...<|im_end|>
+    result = []
+    user_speaker = history[-1].speaker
+    while llm.start in resp and llm.end in resp:
+        # Find the start
+        resp = resp[resp.index(llm.start) + len(llm.start):]
+
+        # Find the end
+        segment = resp[:resp.index(llm.end)]
+        resp = resp[len(segment) + len(llm.end):].strip()
+
+        # Parse the segment
+        spl = segment.split('\n', 1)
+        speaker = spl[0].strip()
+        text = spl[1].strip()
+
+        # If LLM starts to imagine the text of the user, then we can stop here
+        if speaker == user_speaker:
+            break
+
+        # TODO: Classify animation using the classification model
+        animation = "w-cute01-tilthead"
+        face = "face_smile_01"
+
+        # Add the segment to the result
+        result.append(ChatLog(
+            speaker=speaker, text=text,
+            animation=animation, face=face,
+            display_text=f"${{anim:{animation}}}${{face:{face}}}${{title:{speaker}}}{text}"
+        ))
+
+    # Old code below for parsing a single response
+    # (no longer used because animations were separated into a classification model)
 
     # Parse speaker, animation, and face from the response text
-    response_text = response_text.rsplit("<|im_start|>", 1)[-1].replace("<|im_end|>", "")
-    lines = response_text.splitlines()
-    idx = lines[0].find('{')
-    if idx > 0:
-        speaker = lines[0][:idx].strip()
-        jsn = json.loads(lines[0][idx:])
-        face, animation = jsn['face'], jsn['animation']
-    else:
-        speaker = lines[0]
-        face, animation = None, None
+    # response_text = response_text.rsplit("<|im_start|>", 1)[-1].replace("<|im_end|>", "")
+    # lines = response_text.splitlines()
+    # idx = lines[0].find('{')
+    # if idx > 0:
+    #     speaker = lines[0][:idx].strip()
+    #     jsn = json.loads(lines[0][idx:])
+    #     face, animation = jsn['face'], jsn['animation']
+    # else:
+    #     speaker = lines[0]
+    #     face, animation = None, None
 
-    afmt = animation
-    if afmt:
-        try:
-            a1, a2, a3 = animation.split("_")
-            afmt = f"w-{a1}{a3}-{a2}"
-        except Exception:
-            pass
+    # afmt = animation
+    # if afmt:
+    #     try:
+    #         a1, a2, a3 = animation.split("_")
+    #         afmt = f"w-{a1}{a3}-{a2}"
+    #     except Exception:
+    #         pass
 
-        if afmt not in animations:
-            lst = rapidfuzz.process.extract(afmt, animations)
-            log.warn(f'Animation not found, closest animation: {animation} -> {lst[0]}')
-            afmt = lst[0][0]
+    #     if afmt not in animations:
+    #         lst = rapidfuzz.process.extract(afmt, animations)
+    #         log.warn(f'Animation not found, closest animation: {animation} -> {lst[0]}')
+    #         afmt = lst[0][0]
 
-        # If the animation is the same as the previous, use the next animation
-        if len(history) >= 2 and afmt in history[-2].display_text:
-            lst = rapidfuzz.process.extract(afmt, animations)
-            afmt = lst[1][0]
-            log.warn(f'> Repeating animation, closest animation: {animation} -> {lst[1]}')
+    #     # If the animation is the same as the previous, use the next animation
+    #     if len(history) >= 2 and afmt in history[-2].display_text:
+    #         lst = rapidfuzz.process.extract(afmt, animations)
+    #         afmt = lst[1][0]
+    #         log.warn(f'> Repeating animation, closest animation: {animation} -> {lst[1]}')
 
-    text = '\n'.join(lines[1:]).strip()
+    # text = '\n'.join(lines[1:]).strip()
 
-    return ChatLog(speaker=speaker, text=text, animation=animation, face=face,
-                   display_text=f"${{anim:{afmt}}}${{face:face_{face}_01}}${{title:{speaker}}}{text}")
+    # return ChatLog(speaker=speaker, text=text, animation=animation, face=face,
+    #                display_text=f"${{anim:{afmt}}}${{face:face_{face}_01}}${{title:{speaker}}}{text}")
+
+    return result
 
 
 @app.post("/llm/create")
@@ -141,11 +195,12 @@ def create_session(request: CreateSessionRequest):
         user_speaker=request.intro.speaker,
         history=[request.intro]
     )
-    session_data.history.append(gen_response(session_data.history))
+    resp = gen_response(session_data.history)
+    session_data.history += resp
     write_json(db_dir / f"{session_id}.json", session_data)
     return {
         "id": session_id,
-        "next": session_data.history[-1]
+        "next": resp
     }
 
 
@@ -158,10 +213,11 @@ def generate_response(request: GenerateResponseRequest):
     session_data = SavedSession.parse_file(sf)
 
     session_data.history.append(ChatLog(speaker=session_data.user_speaker, text=request.text, animation=None, face=None))
-    session_data.history.append(gen_response(session_data.history))
+    resp = gen_response(session_data.history)
+    session_data.history += resp
 
     write_json(sf, session_data)
-    return session_data.history[-1]
+    return resp
 
 
 @app.post("/llm/history")
@@ -189,18 +245,14 @@ def get_templates():
             {
                 "log": ChatLog(
                     speaker="千葉",
-                    text="瑞希、はじめまして！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。",
-                    animation="cute_tilthead_11",
-                    face="smile"
+                    text="瑞希さん、おはよう！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。"
                 ),
                 "description": "瑞希の従妹の千葉として会話を始める。"
             },
             {
                 "log": ChatLog(
                     speaker="彩花",
-                    text="こんにちは、暁山さん！はじめまして。いつもニーゴの音楽聴いてるよ。会えて本当に嬉しい！",
-                    animation="cute_tilthead_11",
-                    face="smile"
+                    text="こんにちは、暁山さん！はじめまして。いつもニーゴの音楽聴いてるよ。会えて本当に嬉しい！"
                 ),
                 "description": "瑞希ファンの彩花"
             },
@@ -221,16 +273,9 @@ if __name__ == '__main__':
     args = agupa.parse_args()
 
     # Load model and tokenizer
-    model, tokenizer = mk_model()
+    llm = LLM()
 
     if args.action == 'test':
-        gen_response([ChatLog(
-            speaker="千葉",
-            text="瑞希、はじめまして！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。",
-            animation="cute_tilthead_11",
-            face="smile"
-        )])
-
         # Time 10 responses
         import time
         start = time.time()

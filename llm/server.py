@@ -57,19 +57,21 @@ class LLM:
 class GenerateResponseRequest(BaseModel):
     id: str
     text: str
+    force_speaker: str | None = Field(default=None)
 
 
 class ChatLog(BaseModel):
     speaker: str
     text: str
-    animation: str | None
-    face: str | None
+    animation: str | None = Field(default=None)
+    face: str | None = Field(default=None)
     display_text: str | None = Field(default=None)
 
 
 class CreateSessionRequest(BaseModel):
     name: str
     intro: ChatLog
+    force_speaker: str | None = Field(default=None)
 
 
 class SavedSession(BaseModel):
@@ -82,7 +84,7 @@ class GetHistoryRequest(BaseModel):
     id: str
 
 
-def build_prompt(history: list[ChatLog], force_speaker: str | None = None) -> str:
+def build_prompt(history: list[ChatLog]) -> str:
     """
     Build prompt from historical chat log
     """
@@ -90,13 +92,10 @@ def build_prompt(history: list[ChatLog], force_speaker: str | None = None) -> st
 <|im_start|>system
 プロセカのメンバー間の会話のダイアログを書いてください。繰り返しを避けてください。<|im_end|>""".strip()
     for log in history:
-        animation = f' {{"animation": "{log.animation}", "face": "{log.face}"}}' if log.animation else ""
+        # animation = f' {{"animation": "{log.animation}", "face": "{log.face}"}}' if log.animation else ""
         prompt += f"""
-<|im_start|>{log.speaker}{animation}
+<|im_start|>{log.speaker}
 {log.text}<|im_end|>"""
-
-    if force_speaker:
-        prompt += f"""\n<|im_start|>{force_speaker}"""
 
     return prompt
 
@@ -105,10 +104,13 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
     """
     Generate a response given the history and user input
     """
-    prompt = build_prompt(history, force_speaker)
+    prompt = build_prompt(history)
     log.debug(prompt)
 
-    resp = llm.gen(prompt)
+    tmp = prompt
+    if force_speaker:
+        tmp += f"""\n<|im_start|>{force_speaker}"""
+    resp = llm.gen(tmp)
     log.debug(resp)
 
     # Remove input text from response
@@ -131,7 +133,7 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
         text = spl[1].strip()
 
         # If LLM starts to imagine the text of the user, then we can stop here
-        if speaker == user_speaker:
+        if speaker == user_speaker or speaker == 'system':
             break
 
         # TODO: Classify animation using the classification model
@@ -145,45 +147,6 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
             display_text=f"${{anim:{animation}}}${{face:{face}}}${{title:{speaker}}}{text}"
         ))
 
-    # Old code below for parsing a single response
-    # (no longer used because animations were separated into a classification model)
-
-    # Parse speaker, animation, and face from the response text
-    # response_text = response_text.rsplit("<|im_start|>", 1)[-1].replace("<|im_end|>", "")
-    # lines = response_text.splitlines()
-    # idx = lines[0].find('{')
-    # if idx > 0:
-    #     speaker = lines[0][:idx].strip()
-    #     jsn = json.loads(lines[0][idx:])
-    #     face, animation = jsn['face'], jsn['animation']
-    # else:
-    #     speaker = lines[0]
-    #     face, animation = None, None
-
-    # afmt = animation
-    # if afmt:
-    #     try:
-    #         a1, a2, a3 = animation.split("_")
-    #         afmt = f"w-{a1}{a3}-{a2}"
-    #     except Exception:
-    #         pass
-
-    #     if afmt not in animations:
-    #         lst = rapidfuzz.process.extract(afmt, animations)
-    #         log.warn(f'Animation not found, closest animation: {animation} -> {lst[0]}')
-    #         afmt = lst[0][0]
-
-    #     # If the animation is the same as the previous, use the next animation
-    #     if len(history) >= 2 and afmt in history[-2].display_text:
-    #         lst = rapidfuzz.process.extract(afmt, animations)
-    #         afmt = lst[1][0]
-    #         log.warn(f'> Repeating animation, closest animation: {animation} -> {lst[1]}')
-
-    # text = '\n'.join(lines[1:]).strip()
-
-    # return ChatLog(speaker=speaker, text=text, animation=animation, face=face,
-    #                display_text=f"${{anim:{afmt}}}${{face:face_{face}_01}}${{title:{speaker}}}{text}")
-
     return result
 
 
@@ -195,7 +158,7 @@ def create_session(request: CreateSessionRequest):
         user_speaker=request.intro.speaker,
         history=[request.intro]
     )
-    resp = gen_response(session_data.history)
+    resp = gen_response(session_data.history, force_speaker=request.force_speaker)
     session_data.history += resp
     write_json(db_dir / f"{session_id}.json", session_data)
     return {
@@ -213,7 +176,7 @@ def generate_response(request: GenerateResponseRequest):
     session_data = SavedSession.parse_file(sf)
 
     session_data.history.append(ChatLog(speaker=session_data.user_speaker, text=request.text, animation=None, face=None))
-    resp = gen_response(session_data.history)
+    resp = gen_response(session_data.history, force_speaker=request.force_speaker)
     session_data.history += resp
 
     write_json(sf, session_data)
@@ -283,8 +246,6 @@ if __name__ == '__main__':
             resp = gen_response([ChatLog(
                 speaker="千葉",
                 text="瑞希、はじめまして！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。",
-                animation="cute_tilthead_11",
-                face="smile"
             )])
             print(resp.speaker, ":", resp.text)
 

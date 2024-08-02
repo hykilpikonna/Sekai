@@ -1,8 +1,12 @@
 import argparse
 import json
+import random
 import uuid
 from pathlib import Path
 
+import time
+from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
+from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification, Trainer, TrainingArguments
 import rapidfuzz.process
 import torch
 import uvicorn
@@ -12,46 +16,64 @@ from hypy_utils.logging_utils import setup_logger
 from pydantic import BaseModel, Field
 from server_share import app
 import server_misc
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_path = "/mnt/data/menci/llm/export/ds4-instruct-1"
 log = setup_logger()
 
 # Directory to store session data
 db_dir = ensure_dir(Path(__file__).parent / "database")
 animations = {v for v in (Path(__file__).parent / 'animations.txt').read_text('utf-8').splitlines() if v}
+faces = {v for v in (Path(__file__).parent / 'face.txt').read_text('utf-8').splitlines() if v}
 
 
 class LLM:
-    dev: str = "cuda:0" if torch.cuda.is_available() else "cpu"
-    m: AutoModelForCausalLM
-    t: AutoTokenizer
+    """
+    Powered by LMDeploy
+    """
+    pipe: pipeline
     start = "<|im_start|>"
     end = "<|im_end|>"
-    params: dict
 
     def __init__(self):
-        # Load models
-        self.m = AutoModelForCausalLM.from_pretrained(
-            # m = AutoGPTQForCausalLM.from_quantized(
-            model_path, torch_dtype=torch.float16, device_map="auto",
-            attn_implementation="flash_attention_2"
-        ).to(self.dev)
-        self.t = AutoTokenizer.from_pretrained(model_path)
-        self.params = {
-            # "eos_token_id": self.t.eos_token_id,
-            "pad_token_id": self.t.pad_token_id,
-            "max_new_tokens": 64,
-            "temperature": 0.9,
-            # "top_p": 0.9,
-            # "top_k": 50,
-            # "repetition_penalty": 1.2
-        }
+        config = TurbomindEngineConfig(tp=1, session_len=1024)
+        self.pipe = pipeline("/mnt/data/menci/llm/export/ds4-instruct-1-awq4", backend_config=config)
 
-    def gen(self, prompt: str) -> str:
-        model_inputs = self.t(prompt, return_tensors="pt").to(self.dev)
-        return self.t.decode(self.m.generate(**model_inputs, **self.params)[0], skip_special_tokens=False)
+    def gen(self, text: str) -> str:
+        log.debug(time.time_ns() % 2**32)
+        return self.pipe(text, gen_config=GenerationConfig(
+            max_new_tokens=64,
+            temperature=0.9,
+            repetition_penalty=1.2,  # This is extremely important!
+            random_seed=time.time_ns() % 2**32,
+            top_k=10,
+            top_p=0.9
+        )).text
 
+
+class FaceClassifier:
+    """
+    Classify live2d face id from textual data
+    """
+    pth = '/home/Menci/d/cls/model/face_data_major_classes'
+    tokenizer = XLMRobertaTokenizer.from_pretrained(pth)
+    model = XLMRobertaForSequenceClassification.from_pretrained(pth)
+
+    def classify(self, text: str) -> str:
+        inputs = self.tokenizer(text, return_tensors="pt")
+        outputs = self.model(**inputs)
+        logits = outputs.logits
+        predicted_class_id = logits.argmax().item()
+        ans = self.model.config.id2label[predicted_class_id]
+
+        # Add face_
+        ans = f'face_{ans}'
+
+        # Get the list of valid faces that start with ans
+        lst = [face for face in faces if face.startswith(ans)]
+        if lst:
+            return sorted(lst)[0]
+
+        # Not found, fuzzy match
+        return rapidfuzz.process.extractOne(ans, faces, scorer=rapidfuzz.fuzz.QRatio)[0]
 
 
 class GenerateResponseRequest(BaseModel):
@@ -91,11 +113,11 @@ def build_prompt(history: list[ChatLog]) -> str:
     prompt = f"""
 <|im_start|>system
 プロセカのメンバー間の会話のダイアログを書いてください。繰り返しを避けてください。<|im_end|>""".strip()
-    for log in history:
+    for entry in history:
         # animation = f' {{"animation": "{log.animation}", "face": "{log.face}"}}' if log.animation else ""
         prompt += f"""
-<|im_start|>{log.speaker}
-{log.text}<|im_end|>"""
+<|im_start|>{entry.speaker}
+{entry.text}<|im_end|>"""
 
     return prompt
 
@@ -104,47 +126,47 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
     """
     Generate a response given the history and user input
     """
+    history = list(history)
     prompt = build_prompt(history)
-    log.debug(prompt)
+    log.info(f"IN < {prompt}")
 
-    tmp = prompt
     if force_speaker:
-        tmp += f"""\n<|im_start|>{force_speaker}"""
-    resp = llm.gen(tmp)
-    log.debug(resp)
+        prompt += f"""\n<|im_start|>{force_speaker}"""
+    resp = llm.gen(prompt).strip()
+    log.debug(f"OUT > {force_speaker or ''} {resp}")
 
-    # Remove input text from response
-    resp = resp[len(prompt):].strip()
+    # TODO: Identify animation using the classification model
+    anim = 'w-cute01-tilthead'
 
-    # Loop through the response and parse each <|im_start|>...<|im_end|>
-    result = []
-    user_speaker = history[-1].speaker
-    while llm.start in resp and llm.end in resp:
-        # Find the start
-        resp = resp[resp.index(llm.start) + len(llm.start):]
+    # Create response
+    speaker, text = (force_speaker, resp) if force_speaker else resp.split('\n', 1)
+    face = fc.classify(text)
+    result = [ChatLog(
+        speaker=speaker, text=text,
+        animation=anim, face=face,
+        display_text=f"${{anim:{anim}}}${{face:{face}}}${{title:{speaker}}}{text}"
+    )]
 
-        # Find the end
-        segment = resp[:resp.index(llm.end)]
-        resp = resp[len(segment) + len(llm.end):].strip()
+    # See if it has anything else to say (maximum 3 additional lines)
+    target = speaker
+    for _ in range(3):
+        # Add result to history and generate again to see if it has anything else to say
+        history.append(result[-1])
+        resp = llm.gen(build_prompt(history)).strip()
+        log.debug(resp)
 
-        # Parse the segment
-        spl = segment.split('\n', 1)
-        speaker = spl[0].strip()
-        text = spl[1].strip()
-
-        # If LLM starts to imagine the text of the user, then we can stop here
-        if speaker == user_speaker or speaker == 'system':
+        # If the generated speaker is not the same as the previous speaker,
+        # then we can stop here
+        speaker, text = resp.split('\n', 1)
+        if speaker != target:
             break
 
-        # TODO: Classify animation using the classification model
-        animation = "w-cute01-tilthead"
-        face = "face_smile_01"
-
-        # Add the segment to the result
+        # Add the response to the result
+        face = fc.classify(text)
         result.append(ChatLog(
             speaker=speaker, text=text,
-            animation=animation, face=face,
-            display_text=f"${{anim:{animation}}}${{face:{face}}}${{title:{speaker}}}{text}"
+            animation=anim, face=face,
+            display_text=f"${{anim:{anim}}}${{face:{face}}}${{title:{speaker}}}{text}"
         ))
 
     return result
@@ -237,6 +259,7 @@ if __name__ == '__main__':
 
     # Load model and tokenizer
     llm = LLM()
+    fc = FaceClassifier()
 
     if args.action == 'test':
         # Time 10 responses
@@ -247,8 +270,8 @@ if __name__ == '__main__':
                 speaker="千葉",
                 text="瑞希、はじめまして！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。",
             )])
-            print(resp.speaker, ":", resp.text)
+            log.debug(f"{resp}")
 
-        print(f"Time taken: {(time.time() - start) / 10:.2f}s per response")
+        log.warning(f"Time taken: {(time.time() - start) / 10:.2f}s per response")
     else:
         uvicorn.run(app, host=args.host, port=args.port)

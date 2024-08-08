@@ -15,10 +15,12 @@ from backends.mlc_backend import LLM
 
 log = setup_logger()
 
-# Directory to store session data
 src = Path(__file__).parent
 data = src / '../data'
+# Directory to store session data
 db_dir = ensure_dir(src / "database")
+# Face and animation model
+face_model = '/d/sekai/cls/model/face_data_major_classes'
 animations = {v for v in (data / 'animations.txt').read_text('utf-8').splitlines() if v}
 faces = {v for v in (data / 'face.txt').read_text('utf-8').splitlines() if v}
 
@@ -27,9 +29,9 @@ class FaceClassifier:
     """
     Classify live2d face id from textual data
     """
-    pth = '/home/Menci/d/cls/model/face_data_major_classes'
-    tokenizer = XLMRobertaTokenizer.from_pretrained(pth)
-    model = XLMRobertaForSequenceClassification.from_pretrained(pth)
+    def __init__(self):
+        self.tokenizer = XLMRobertaTokenizer.from_pretrained(face_model)
+        self.model = XLMRobertaForSequenceClassification.from_pretrained(face_model)
 
     def classify(self, text: str) -> str:
         inputs = self.tokenizer(text, return_tensors="pt")

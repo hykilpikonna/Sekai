@@ -3,17 +3,15 @@ import uuid
 from pathlib import Path
 
 import rapidfuzz.process
-import time
 import uvicorn
 from fastapi import HTTPException
 from hypy_utils import ensure_dir, write_json
 from hypy_utils.logging_utils import setup_logger
-# from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
-from mlc_llm import MLCEngine
 from pydantic import BaseModel, Field
 from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
 
 from server_share import app
+from backends.mlc_backend import LLM
 
 log = setup_logger()
 
@@ -23,50 +21,6 @@ data = src / '../data'
 db_dir = ensure_dir(src / "database")
 animations = {v for v in (data / 'animations.txt').read_text('utf-8').splitlines() if v}
 faces = {v for v in (data / 'face.txt').read_text('utf-8').splitlines() if v}
-
-
-# class LMDeployModel:
-#     """
-#     Powered by LMDeploy
-#     """
-#     pipe: pipeline
-#     start = "<|im_start|>"
-#     end = "<|im_end|>"
-#
-#     def __init__(self):
-#         config = TurbomindEngineConfig(tp=1, session_len=1024)
-#         self.pipe = pipeline("/mnt/data/menci/llm/export/ds4-base-3", backend_config=config)
-#
-#     def gen(self, text: str) -> str:
-#         log.debug(time.time_ns() % 2**32)
-#         return self.pipe(text, gen_config=GenerationConfig(
-#             max_new_tokens=64,
-#             temperature=0.9,
-#             repetition_penalty=1.2,  # This is extremely important!
-#             random_seed=time.time_ns() % 2**32,
-#             top_k=10,
-#             top_p=0.9
-#         )).text
-
-
-class MLCModel:
-    """
-    Since LMDeploy is not supported on many architectures (e.g. V100), I ported this to MLC LLM even though it probably
-    performs worse than LMDeploy.
-    """
-    engine: MLCEngine
-    start = "<|im_start|>"
-    end = "<|im_end|>"
-
-    def __init__(self):
-        self.engine = MLCEngine("/d/sekai/llm/export/ds4-instruct-1-q4f16-MLC", mode="server")
-
-    def gen(self, text: str) -> str:
-        return self.engine.completions.create(
-            prompt=text, max_tokens=64, temperature=0.9, top_p=0.9, stop=self.end
-            # top_k=10,
-            # repetition_penalty=1.2
-        ).choices[0].text
 
 
 class FaceClassifier:
@@ -284,8 +238,7 @@ if __name__ == '__main__':
     args = agupa.parse_args()
 
     # Load model and tokenizer
-    # llm = LMDeployModel()
-    llm = MLCModel()
+    llm = LLM()
     fc = FaceClassifier()
 
     if args.action == 'test':

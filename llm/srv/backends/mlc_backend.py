@@ -25,4 +25,4 @@ class LLM:
             prompt=text, max_tokens=64, temperature=0.9, top_p=0.9, stop=self.end
             # top_k=10,
             # repetition_penalty=1.2
-        )).choices[0].text.lstrip(self.start).rstrip(self.end)
+        )).choices[0].text.strip().strip(self.start).strip(self.end)

@@ -97,7 +97,7 @@ def build_prompt(history: list[ChatLog]) -> str:
 <|im_start|>{entry.speaker}
 {entry.text}<|im_end|>"""
 
-    return prompt
+    return prompt + '\n'
 
 
 async def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> list[ChatLog]:

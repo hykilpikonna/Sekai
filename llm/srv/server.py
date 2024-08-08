@@ -100,7 +100,7 @@ def build_prompt(history: list[ChatLog]) -> str:
     return prompt
 
 
-def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> list[ChatLog]:
+async def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> list[ChatLog]:
     """
     Generate a response given the history and user input
     """
@@ -110,7 +110,7 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
 
     if force_speaker:
         prompt += f"""\n<|im_start|>{force_speaker}"""
-    resp = llm.gen(prompt).strip()
+    resp = (await llm.gen(prompt)).strip()
     log.debug(f"OUT > {force_speaker or ''} {resp}")
 
     # TODO: Identify animation using the classification model
@@ -133,7 +133,7 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
     for _ in range(3):
         # Add result to history and generate again to see if it has anything else to say
         history.append(result[-1])
-        resp = llm.gen(build_prompt(history)).strip()
+        resp = (await llm.gen(build_prompt(history))).strip()
         log.debug(resp)
 
         # If the generated speaker is not the same as the previous speaker,
@@ -157,14 +157,14 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
 
 
 @app.post("/llm/create")
-def create_session(request: CreateSessionRequest):
+async def create_session(request: CreateSessionRequest):
     session_id = str(uuid.uuid4())
     session_data = SavedSession(
         name=request.name,
         user_speaker=request.intro.speaker,
         history=[request.intro]
     )
-    resp = gen_response(session_data.history, force_speaker=request.force_speaker)
+    resp = await gen_response(session_data.history, force_speaker=request.force_speaker)
     session_data.history += resp
     write_json(db_dir / f"{session_id}.json", session_data)
     return {
@@ -174,7 +174,7 @@ def create_session(request: CreateSessionRequest):
 
 
 @app.post("/llm/gen")
-def generate_response(request: GenerateResponseRequest):
+async def generate_response(request: GenerateResponseRequest):
     sf = db_dir / f"{request.id}.json"
     if not sf.exists():
         raise HTTPException(status_code=404, detail="Session not found")
@@ -182,7 +182,7 @@ def generate_response(request: GenerateResponseRequest):
     session_data = SavedSession.parse_file(sf)
 
     session_data.history.append(ChatLog(speaker=session_data.user_speaker, text=request.text, animation=None, face=None))
-    resp = gen_response(session_data.history, force_speaker=request.force_speaker)
+    resp = await gen_response(session_data.history, force_speaker=request.force_speaker)
     session_data.history += resp
 
     write_json(sf, session_data)
@@ -190,7 +190,7 @@ def generate_response(request: GenerateResponseRequest):
 
 
 @app.post("/llm/history")
-def get_history(request: GetHistoryRequest) -> list[ChatLog]:
+async def get_history(request: GetHistoryRequest) -> list[ChatLog]:
     """
     Get the history of a session
     :return: List of chat logs
@@ -204,7 +204,7 @@ def get_history(request: GetHistoryRequest) -> list[ChatLog]:
 
 
 @app.get("/llm/templates")
-def get_templates():
+async def get_templates():
     """
     Get a list of conversation starting prompt templates for the LLM.
     They are roles that the user can take.
@@ -230,7 +230,7 @@ def get_templates():
 
 
 @app.get('/llm/health')
-def health():
+async def health():
     return {"status": "ok"}
 
 

@@ -18,9 +18,11 @@ from server_share import app
 log = setup_logger()
 
 # Directory to store session data
-db_dir = ensure_dir(Path(__file__).parent / "database")
-animations = {v for v in (Path(__file__).parent / 'animations.txt').read_text('utf-8').splitlines() if v}
-faces = {v for v in (Path(__file__).parent / 'face.txt').read_text('utf-8').splitlines() if v}
+src = Path(__file__).parent
+data = src / '../data'
+db_dir = ensure_dir(src / "database")
+animations = {v for v in (data / 'animations.txt').read_text('utf-8').splitlines() if v}
+faces = {v for v in (data / 'face.txt').read_text('utf-8').splitlines() if v}
 
 
 # class LMDeployModel:

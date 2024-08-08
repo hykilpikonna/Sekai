@@ -11,7 +11,7 @@ class LLM:
     end = "<|im_end|>"
 
     def __init__(self):
-        self.engine = MLCEngine("/d/sekai/llm/export/ds4-instruct-1-q4f16-MLC", mode="server")
+        self.engine = MLCEngine("/d/sekai/llm/export/ds4-base-3-q4f16-MLC", mode="server")
 
     def gen(self, text: str) -> str:
         return self.engine.completions.create(

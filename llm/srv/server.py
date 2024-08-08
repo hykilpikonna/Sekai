@@ -10,10 +10,12 @@ from hypy_utils.logging_utils import setup_logger
 from pydantic import BaseModel, Field
 from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
 
+# We do need to set up logger before importing MLC, see https://github.com/mlc-ai/mlc-llm/issues/2780
+log = setup_logger()
+
 from server_share import app
 from backends.mlc_backend import LLM
 
-log = setup_logger()
 
 src = Path(__file__).parent
 data = src / '../data'

@@ -1,21 +1,19 @@
 import argparse
-import json
-import random
 import uuid
 from pathlib import Path
 
-import time
-from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
-from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification, Trainer, TrainingArguments
 import rapidfuzz.process
-import torch
+import time
 import uvicorn
 from fastapi import HTTPException
 from hypy_utils import ensure_dir, write_json
 from hypy_utils.logging_utils import setup_logger
+# from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
+from mlc_llm import MLCEngine
 from pydantic import BaseModel, Field
+from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
+
 from server_share import app
-import server_misc
 
 log = setup_logger()
 
@@ -25,28 +23,48 @@ animations = {v for v in (Path(__file__).parent / 'animations.txt').read_text('u
 faces = {v for v in (Path(__file__).parent / 'face.txt').read_text('utf-8').splitlines() if v}
 
 
-class LLM:
+# class LMDeployModel:
+#     """
+#     Powered by LMDeploy
+#     """
+#     pipe: pipeline
+#     start = "<|im_start|>"
+#     end = "<|im_end|>"
+#
+#     def __init__(self):
+#         config = TurbomindEngineConfig(tp=1, session_len=1024)
+#         self.pipe = pipeline("/mnt/data/menci/llm/export/ds4-base-3", backend_config=config)
+#
+#     def gen(self, text: str) -> str:
+#         log.debug(time.time_ns() % 2**32)
+#         return self.pipe(text, gen_config=GenerationConfig(
+#             max_new_tokens=64,
+#             temperature=0.9,
+#             repetition_penalty=1.2,  # This is extremely important!
+#             random_seed=time.time_ns() % 2**32,
+#             top_k=10,
+#             top_p=0.9
+#         )).text
+
+
+class MLCModel:
     """
-    Powered by LMDeploy
+    Since LMDeploy is not supported on many architectures (e.g. V100), I ported this to MLC LLM even though it probably
+    performs worse than LMDeploy.
     """
-    pipe: pipeline
+    engine: MLCEngine
     start = "<|im_start|>"
     end = "<|im_end|>"
 
     def __init__(self):
-        config = TurbomindEngineConfig(tp=1, session_len=1024)
-        self.pipe = pipeline("/mnt/data/menci/llm/export/ds4-instruct-1-awq4", backend_config=config)
+        self.engine = MLCEngine("/d/sekai/llm/export/ds4-instruct-1-q4f16-MLC", mode="server")
 
     def gen(self, text: str) -> str:
-        log.debug(time.time_ns() % 2**32)
-        return self.pipe(text, gen_config=GenerationConfig(
-            max_new_tokens=64,
-            temperature=0.9,
-            repetition_penalty=1.2,  # This is extremely important!
-            random_seed=time.time_ns() % 2**32,
-            top_k=10,
-            top_p=0.9
-        )).text
+        return self.engine.completions.create(
+            prompt=text, max_tokens=64, temperature=0.9, top_p=0.9, stop=self.end
+            # top_k=10,
+            # repetition_penalty=1.2
+        ).choices[0].text
 
 
 class FaceClassifier:
@@ -139,6 +157,9 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
     anim = 'w-cute01-tilthead'
 
     # Create response
+    if not force_speaker and '\n' not in resp:
+        log.error(f"Response did not include a newline: {resp}")
+        resp = f'？？？\n{resp}'
     speaker, text = (force_speaker, resp) if force_speaker else resp.split('\n', 1)
     face = fc.classify(text)
     result = [ChatLog(
@@ -157,6 +178,9 @@ def gen_response(history: list[ChatLog], force_speaker: str | None = None) -> li
 
         # If the generated speaker is not the same as the previous speaker,
         # then we can stop here
+        if '\n' not in resp:
+            log.error(f"Response did not include a newline: {resp}")
+            resp = f'？？？\n{resp}'
         speaker, text = resp.split('\n', 1)
         if speaker != target:
             break
@@ -258,7 +282,8 @@ if __name__ == '__main__':
     args = agupa.parse_args()
 
     # Load model and tokenizer
-    llm = LLM()
+    # llm = LMDeployModel()
+    llm = MLCModel()
     fc = FaceClassifier()
 
     if args.action == 'test':
@@ -266,11 +291,11 @@ if __name__ == '__main__':
         import time
         start = time.time()
         for _ in range(10):
-            resp = gen_response([ChatLog(
+            _tmp = gen_response([ChatLog(
                 speaker="千葉",
                 text="瑞希、はじめまして！私はあなたの従妹の千葉です。しばらくの間、ここに滞在します。よろしくお願いします。",
             )])
-            log.debug(f"{resp}")
+            log.info(f"{_tmp[0].text}")
 
         log.warning(f"Time taken: {(time.time() - start) / 10:.2f}s per response")
     else:

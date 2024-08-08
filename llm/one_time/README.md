@@ -1,0 +1,1 @@
+This directory stores one-time scripts used to generate some data. They are mostly kept here for archival purpose.

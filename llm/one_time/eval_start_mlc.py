@@ -7,7 +7,6 @@ What this means is, it
 * checks how many responded with the correct speaker
 """
 import argparse
-import json
 import random
 import time
 from pathlib import Path
@@ -16,7 +15,8 @@ tqdm.pandas()
 
 import pandas as pd
 from hypy_utils.logging_utils import setup_logger
-from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
+from mlc_llm import MLCEngine
+from mlc_llm.serve import EngineConfig
 
 log = setup_logger()
 
@@ -30,21 +30,25 @@ def build_prompt(speaker: str, text: str) -> str:
 
 
 class DS4Models:
-    pipe: pipeline
+    engine: MLCEngine
+    start = "<|im_start|>"
+    end = "<|im_end|>"
 
-    def __init__(self, path: str | Path):
-        config = TurbomindEngineConfig(tp=2, session_len=1024)
-        self.pipe = pipeline(path, backend_config=config)
+    def __init__(self, path):
+        self.engine = MLCEngine(
+            path,
+            mode="server",
+            engine_config=EngineConfig(
+                tensor_parallel_shards=1
+            )
+        )
 
-    def gen(self, text: list[str]) -> list[str]:
-        return [v.text for v in self.pipe(text, gen_config=GenerationConfig(
-            max_new_tokens=64,
-            temperature=0.9,
-            repetition_penalty=1.2,  # This is extremely important!
-            random_seed=time.time_ns() % 2**32,
+    def gen(self, text: str) -> str:
+        return (self.engine.completions.create(
+            prompt=text, max_tokens=64, temperature=0.9, top_p=0.9, stop=self.end
             # top_k=10,
-            top_p=0.9
-        ))]
+            # repetition_penalty=1.2
+        )).choices[0].text.strip().strip(self.start).strip(self.end)
 
 
 if __name__ == '__main__':
@@ -62,20 +66,16 @@ if __name__ == '__main__':
 
     # Generate prompts
     pairs['prompt'] = pairs.apply(lambda x: build_prompt(x.speaker, f'{x.target}、最近どうですか？'), axis=1)
-
-    # Testing: limit to 10 entries first
-    # pairs = pairs.sample(10)
     
     # Random shuffle
     pairs = pairs.sample(frac=1).reset_index(drop=True)
 
     # Generate responses
     # pairs['response'] = pairs.prompt.apply(lambda x: model.gen(x))
-    pairs['response'] = pairs.prompt.progress_apply(lambda x: model.gen([x])[0])
-    # pairs['response'] = model.gen(list(pairs.prompt))
+    pairs['response'] = pairs.prompt.progress_apply(lambda x: model.gen(x))
 
     Path(data / 'eval/resp').mkdir(parents=True, exist_ok=True)
 
     # Save
-    pairs.to_csv(data / f'eval/resp/{mp.stem}-lmd-pr-tp2.csv', index=False)
+    pairs.to_csv(data / f'eval/resp/{mp.stem}.csv', index=False)
 

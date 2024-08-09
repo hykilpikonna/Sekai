@@ -21,7 +21,7 @@ class LLM:
         )
 
     async def gen(self, text: str) -> str:
-        return (await self.engine.completions.create(
+        return (self.engine.completions.create(
             prompt=text, max_tokens=64, temperature=0.9, top_p=0.9, stop=self.end
             # top_k=10,
             # repetition_penalty=1.2

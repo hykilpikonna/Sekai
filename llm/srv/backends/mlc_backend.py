@@ -7,12 +7,12 @@ class LLM:
     Since LMDeploy is not supported on many architectures (e.g. V100), I ported this to MLC LLM even though it probably
     performs worse than LMDeploy.
     """
-    engine: AsyncMLCEngine
+    engine: MLCEngine
     start = "<|im_start|>"
     end = "<|im_end|>"
 
     def __init__(self):
-        self.engine = AsyncMLCEngine(
+        self.engine = MLCEngine(
             "/d/sekai/llm/export/ds4-base-3-q4f16-MLC",
             mode="server",
             engine_config=EngineConfig(

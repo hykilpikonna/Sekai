@@ -1,0 +1,16 @@
+[Unit]
+Description=Sekai LLM
+After=network-online.target
+
+[Service]
+Type=simple
+User=azalea
+WorkingDirectory=/d/sekai/git/llm/srv
+ExecStart=/d/sekai/mamba/envs/mlc/bin/python3 server.py
+Restart=on-failure
+RestartSec=5
+Environment=DEBUG=1
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

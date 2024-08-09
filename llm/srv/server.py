@@ -262,8 +262,8 @@ if __name__ == '__main__':
 
     # Load model and tokenizer
     llm = LLM()
-    # fc = FaceClassifier()
-    fc = DummyFaceClassifier()
+    fc = FaceClassifier()
+    # fc = DummyFaceClassifier()
 
     if args.action == 'test':
         # Run test

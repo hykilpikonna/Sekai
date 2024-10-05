@@ -123,12 +123,16 @@ if __name__ == '__main__':
     # Open .asset files as json
     # assets = DATA_DIR.glob("*.asset")
     assets = sum([list(d.glob("**/*.asset")) for d in DATA_DIRS], [])
+    print(f"Number of assets: {len(assets)}")
+    assets = list(set(assets))
+    print(f"Number of unique assets: {len(assets)}")
 
     # Parse and combine
     parsed = pmap(parse_asset, assets)
     all_parsed = [talk for talks in parsed for talk in talks]
 
     # Save
+    Path('data/parsed_chats.json').write_text(json.dumps(parsed, ensure_ascii=False, indent=2), 'utf-8')
     Path('data/all_chat.json').write_text(json.dumps(all_parsed, ensure_ascii=False, indent=2), 'utf-8')
     print("Done")
 

@@ -251,6 +251,21 @@ def center_of(wanted_size: tuple[int, int, int], top_left: tuple[int, int]) -> t
     return int(tl_x + w_src / 2), int(tl_y + h_src / 2)
 
 
+def priority_win():
+    import win32api
+    import win32process
+    import win32con
+
+    # Get the current process handle
+    process_handle = win32api.GetCurrentProcess()
+
+    # Set the priority to real-time
+    win32process.SetPriorityClass(process_handle, win32con.REALTIME_PRIORITY_CLASS)
+
+    # Your code here
+    print("Running at real-time priority...")
+
+
 if __name__ == '__main__':
     # Test album finder
     finder = SongFinder()

@@ -10,11 +10,11 @@ log = setup_logger()
 
 class DeviceConfig:
     adb_serial: str
-    screen_size: list[int]
-    corner_ld: list[int]
-    corner_lt: list[int]
-    corner_rt: list[int]
-    corner_rd: list[int]
+    screen_size: tuple[int, int]
+    corner_ld: tuple[int, int]
+    corner_lt: tuple[int, int]
+    corner_rt: tuple[int, int]
+    corner_rd: tuple[int, int]
     visual_y: int
     touch_y: int
     bitrate: int
@@ -26,6 +26,7 @@ class Config:
     debug: bool
     image_threshold: float
     frame_delay: float
+    music_path: str
 
 
 def toml_to_namespace(s: str) -> Any:
@@ -42,3 +43,5 @@ def _dict_to_namespace(d: dict) -> SafeNamespace:
 
 config: Config = [toml_to_namespace(Path(f).read_text()) for f in ['config.toml', 'automata/config.toml']
                   if Path(f).is_file()][0]
+
+global_dict = {}

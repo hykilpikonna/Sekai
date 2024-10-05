@@ -1,0 +1,14 @@
+{
+  "name": "sus2json",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "sus-analyzer": "^2.2.4"
+  }
+}

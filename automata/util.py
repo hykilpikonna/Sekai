@@ -67,6 +67,66 @@ class SongFinder:
         print(f"> Song finder best match: ID {id} - Score {scores[best]}")
         return id, self.music_data[id]
 
+
+class ImageFinder:
+    """
+    This is an instance of an image UI element at a specific screen location. The raw files are saved
+    by `editor.py` which contains a rect bounding box for the UI element and a crop image. You can use this
+    to find whether the element is on screen.
+    """
+    name: str
+    start: tuple[int, int]
+    end: tuple[int, int]
+    center: tuple[int, int]
+    offset: tuple[int, int]
+    crop: ndarray
+    gray: ndarray
+
+    def __init__(self, name: str):
+        # Load the image finder data from the editor by directory name
+        self.name = name
+        p = Path(__file__).parent / 'stages/editor' / name
+        if not p.is_dir():
+            raise FileNotFoundError(f"Image finder {name} not found")
+
+        # Load the metadata
+        with (p / 'meta.toml').open() as f:
+            meta = toml.load(f)
+            self.start = meta['start']
+            self.end = meta['end']
+            self.offset = meta.get('offset', (0, 0))
+            # Add one pixel to the start point
+            # (because the editor accidentally drew the rectangle box on the crop line)
+            self.start = (self.start[0] + 1, self.start[1] + 1)
+
+            self.center = (self.start[0] + (self.end[0] - self.start[0]) // 2 + self.offset[0],
+                           self.start[1] + (self.end[1] - self.start[1]) // 2 + self.offset[1])
+
+        # Load the crop image (remove 1px border)
+        self.crop = cv2.imread(str(p / 'crop.png'))[1:, 1:]
+        self.gray = cv2.cvtColor(self.crop, cv2.COLOR_BGR2GRAY)
+
+    def check(self, frame: ndarray) -> tuple[int, int] | None:
+        """
+        Check whether the UI element is on the screen
+
+        :param frame: The screen frame (grayscale)
+        :return: The center position (including offset) when found, None otherwise
+        """
+        region = frame[self.start[1]:self.end[1], self.start[0]:self.end[0]]
+
+        # Check if frame is grayscale
+        if len(region.shape) == 3:
+            region = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+
+        assert region.shape == self.gray.shape, f"Region shape mismatch: {region.shape} != {self.gray.shape}"
+
+        # Check similarity
+        res = max(cv2.matchTemplate(region, self.gray, cv2.TM_CCOEFF_NORMED).flatten())
+        if res > config.image_threshold:
+            return self.center
+
+
 def intersection(corner1: tuple[int, int], corner2: tuple[int, int], y_line: int) -> int:
     """
     Calculate the x-intercept of a line that intersects the given y-line
@@ -122,12 +182,14 @@ def locate(source: ndarray, wanted: ndarray, accuracy: float = 0.90, center: boo
     :param center: 是否返回目标中心坐标
     :return: 找到的位置的左上角坐标
     """
+    t = time.time()
     result = cv2.matchTemplate(source, wanted, cv2.TM_CCOEFF_NORMED)
     _, max_val, _, max_loc = cv2.minMaxLoc(result)
+    print(f"Match time: {time.time() - t:.3f}s")
 
     if max_val >= accuracy:
         # Debug: Draw the bounding rect of the found image
-        if DEBUG:
+        if config.debug:
             h, w = wanted.shape[:-1]
             cv2.rectangle(source, max_loc, (max_loc[0] + w, max_loc[1] + h), (0, 0, 255), 2)
 
@@ -180,13 +242,8 @@ def center_of(wanted_size: tuple[int, int, int], top_left: tuple[int, int]) -> t
     return int(tl_x + w_src / 2), int(tl_y + h_src / 2)
 
 
-def toml_to_namespace(s: str) -> Any:
-    # Parse the TOML string into a dictionary
-    parsed_toml = toml.loads(s)
-    # Convert the dictionary into a SafeNamespace object
-    return _dict_to_namespace(parsed_toml)
-
-
-def _dict_to_namespace(d: dict) -> SafeNamespace:
-    # Recursively convert dictionaries into SafeNamespace objects
-    return SafeNamespace(**{k: _dict_to_namespace(v) if isinstance(v, dict) else v for k, v in d.items()})
+if __name__ == '__main__':
+    # Test album finder
+    finder = SongFinder()
+    crop = cv2.imread('stages/editor/song_cover/crop.png')
+    print(finder.find(crop))

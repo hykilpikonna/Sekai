@@ -1,3 +1,4 @@
+import random
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -33,7 +34,7 @@ class Action(ABC):
         :param ctx: The context object
         :return: True if the action is completed, False or None otherwise
         """
-        pass
+        return True
 
 
 @dataclass
@@ -41,7 +42,7 @@ class SekaiStageOp:
     name: str
     actions: list[Action]
     next_stage: set[str]
-    next_stage_timeout: float = 5.0
+    next_stage_timeout: float = 2.0
     action_i: int = 0
 
 
@@ -57,8 +58,9 @@ class SekaiStageContext:
     frame_gray: ndarray = None
 
     def tap(self, x: int, y: int):
-        self.client.control.touch(x, y, scrcpy.ACTION_DOWN)
-        self.client.control.touch(x, y, scrcpy.ACTION_UP)
+        id = random.randint(0, 500)
+        self.client.control.touch(x, y, scrcpy.ACTION_DOWN, id)
+        self.client.control.touch(x, y, scrcpy.ACTION_UP, id)
 
     def next(self, frame: ndarray):
         self.cache.clear()

@@ -24,15 +24,18 @@ def load_stages() -> dict[str, SekaiStage]:
     :return: A dictionary of stages
     """
     # Import each module in "stages" package
-    import importlib
-    import pkgutil
-    import stages
+    # for loader, module, is_pkg in pkgutil.walk_packages(str(Path(__file__).parent / 'stages')):
+    #     importlib.import_module(f"stages.{module}")
+    for p in Path(__file__).parent.glob('stages/*.py'):
+        importlib.import_module(f'.stages.{p.stem}', package='automata')
 
-    for loader, module, is_pkg in pkgutil.walk_packages(stages.__path__):
-        importlib.import_module(f"stages.{module}")
+    def recursive_subclasses(cls):
+        return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in recursive_subclasses(s)]
+
+    sub = recursive_subclasses(SekaiStage)
 
     # Get all subclasses of SekaiStage
-    stages = {cls() for cls in SekaiStage.__subclasses__()}
+    stages = {cls() for cls in sub if cls.__module__.startswith('automata.stages')}
     return {stage.name: stage for stage in stages}
 
 
@@ -51,15 +54,42 @@ def find_stage(ctx: SekaiStageContext, stages: dict[str, SekaiStage]) -> SekaiSt
     expect = set(ctx.last_op.next_stage) if ctx.last_op else set()
 
     for stage_name in expect:
-        assert stage_name in stages, f"Stage {stage_name} not found"
+        if stage_name not in stages:
+            logging.error(f'[STAGE] Stage {stage_name} is not found in the stages')
+            continue
         stage = stages[stage_name]
 
         if stage.is_stage(ctx):
             return stage
 
     # Check the remaining stages
-    for stage_name in set(stages.keys()) - expect:
+    for stage_name in set(stages.keys()) - set(expect):
         stage = stages[stage_name]
         if stage.is_stage(ctx):
             logging.warn(f'[STAGE] Stage {stage_name} is not expected. Expected stages are: {expect}')
             return stage
+
+
+class StageClickImage(SekaiStage):
+    def __init__(self, name: str, image: list[ndarray], next_stage: set[str], next_stage_timeout: float = 60,
+                 offset: tuple[int, int] = (0, 0)):
+        super().__init__(name)
+        self.image = image
+        self.next_stage = next_stage
+        self.next_stage_timeout = next_stage_timeout
+        self.offset = offset
+
+    def is_stage(self, ctx: SekaiStageContext) -> bool:
+        for image in self.image:
+            coord = locate(ctx.frame, image)
+            if coord:
+                ctx.cache["icon"] = coord
+                return True
+
+    def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
+        # Click the image
+        x, y = ctx.cache["icon"]
+        x += self.offset[0]
+        y += self.offset[1]
+        return SekaiStageOp(f"click image for {self.name}", [ATap(x, y)],
+                            self.next_stage, self.next_stage_timeout)

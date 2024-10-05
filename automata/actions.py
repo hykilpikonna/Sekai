@@ -3,36 +3,7 @@ from uuid import uuid4
 
 import scrcpy
 
-from automata.stage import SekaiStageContext
-
-
-class Action(ABC):
-    @abstractmethod
-    def start(self, ctx: SekaiStageContext) -> bool | None:
-        """
-        Start the action
-
-        :param ctx: The context object
-        :return: True if the action is completed, False or None otherwise
-        """
-        pass
-
-    def update(self, ctx: SekaiStageContext) -> bool | None:
-        """
-        Called on every frame until the action is completed
-
-        :param ctx: The context object
-        :return: True if the action is completed, False or None otherwise
-        """
-        pass
-
-    def end(self, ctx: SekaiStageContext):
-        """
-        Called when the action is completed
-
-        :param ctx: The context object
-        """
-        pass
+from .models import Action, SekaiStageContext
 
 
 class ATap(Action):
@@ -55,6 +26,16 @@ class ATap(Action):
         return True
 
 
+class ABack(Action):
+    """
+    An action that presses the back button
+    """
+    def start(self, ctx: SekaiStageContext):
+        ctx.client.control.back_or_turn_screen_on(scrcpy.ACTION_DOWN)
+        ctx.client.control.back_or_turn_screen_on(scrcpy.ACTION_UP)
+        return True
+
+
 class ADelay(Action):
     """
     An action that waits for a certain amount of time before completing
@@ -66,9 +47,10 @@ class ADelay(Action):
         self.uuid = uuid4()
 
     def start(self, ctx: SekaiStageContext):
-        ctx.storage[self.uuid] = ctx.time + self.delay * 1_000  # Convert to milliseconds
+        ctx.store[self.uuid] = ctx.time + self.delay * 1_000  # Convert to milliseconds
 
     def update(self, ctx: SekaiStageContext):
-        if ctx.time >= ctx.storage[self.uuid]:
+        if ctx.time >= ctx.store[self.uuid]:
+            del ctx.store[self.uuid]
             return True
 

@@ -6,60 +6,15 @@ True if the current screen is the stage that the class represents, and a method 
 required and return the expected next stage. Also, each stage will have a unique name, which is passed up to the parent
 constructor, which will be used to create a dictionary of stages.
 """
+import importlib
 import logging
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from pathlib import Path
 
-import scrcpy
 from numpy import ndarray
 
-from .actions import Action
-
-
-@dataclass
-class SekaiStageOp:
-    actions: list[Action]
-    next_stage: str | list[str]
-    next_stage_timeout: float = 5.0
-
-
-@dataclass
-class SekaiStageContext:
-    client: scrcpy.Client
-    frame: ndarray
-    storage: dict
-    time: int  # Current time in milliseconds when the frame was captured
-    last_op: SekaiStageOp | None = None
-    last_op_done: bool = False
-
-    def tap(self, x: int, y: int):
-        self.client.control.touch(x, y, scrcpy.ACTION_DOWN)
-        self.client.control.touch(x, y, scrcpy.ACTION_UP)
-
-
-class SekaiStage(ABC):
-    def __init__(self, name: str):
-        self.name = name
-
-    @abstractmethod
-    def is_stage(self, ctx: SekaiStageContext) -> bool:
-        """
-        Check if the current frame is the stage that this class represents
-
-        :param ctx: The context object
-        :return: True if the current frame is the stage that this class represents
-        """
-        pass
-
-    @abstractmethod
-    def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
-        """
-        Perform the actions required for this stage and return the expected next stage
-
-        :param ctx: The context object
-        :return: The expected next stage
-        """
-        pass
+from .actions import ATap
+from .models import SekaiStage, SekaiStageContext, SekaiStageOp
+from .util import locate
 
 
 def load_stages() -> dict[str, SekaiStage]:

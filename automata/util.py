@@ -41,6 +41,32 @@ def ncc_sim(a: ndarray, b: ndarray) -> float:
     return np.sum(a * b) / (np.sqrt(np.sum(a ** 2)) * np.sqrt(np.sum(b ** 2)))
 
 
+class SongFinder:
+    """
+    Finds a song from the screen based on cover image similarity
+    """
+    cover_hashes: dict[str, ImageHash]
+    music_data: dict[int, dict]
+
+    def __init__(self):
+        # Load cover hashes from picle
+        with (Path(__file__).parent / 'data/cover_hashes.pkl').open('rb') as f:
+            self.cover_hashes = pickle.load(f)
+        # Load music data
+        self.music_data = {it['id']: it for it in json.loads(
+            (Path(__file__).parent / 'data/musics.json').read_text())}
+
+    def find(self, cover: ndarray) -> str | None:
+        # Covert to PIL image
+        cover_hash = imagehash.phash(Image.fromarray(cv2.resize(cover, (740, 740))))
+        # Find the lowest hash distance
+        hashes = list(self.cover_hashes.items())
+        scores = [cover_hash - hsh for _, hsh in hashes]
+        best = np.argmin(scores)
+        id = int(hashes[best][0])
+        print(f"> Song finder best match: ID {id} - Score {scores[best]}")
+        return id, self.music_data[id]
+
 def intersection(corner1: tuple[int, int], corner2: tuple[int, int], y_line: int) -> int:
     """
     Calculate the x-intercept of a line that intersects the given y-line

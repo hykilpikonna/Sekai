@@ -1,23 +1,49 @@
-import SusAnalyzer from 'sus-analyzer'
-import { readFileSync, writeFileSync } from 'fs'
-
-// const preprocessChart = (chart: string) => {
-//   // BPM定義を削除
-//   chart = chart.replace(/#BPM.*/g, "");
-//   // BPM変化を削除
-//   chart = chart.replace(/#\d+08:.*/g, "");
-//   //const newChart = chart.replace(/#(([1-9][0-9][0-9])|([0-9][1-9][0-9])|([0-9][0-9][1-9]))(08):(.*)/g, "").replace(/#(BPM)([0-9][2-9]):(.*)/g, "");
-//   return chart;
-// }
-
-let sus = readFileSync('expert.txt', 'utf8')
-// sus = preprocessChart(sus)
-const score = SusAnalyzer.getScore(sus, 480)
-
-// Dump score to json
-writeFileSync('expert.json', JSON.stringify(score, null, 2))
-
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs'
+import { join } from 'path'
 import SekaiSusReader from './sekai-sus-reader'
 
-const out = SekaiSusReader.Read(sus)
-writeFileSync('expert-parsed.json', JSON.stringify(out, null, 2))
+const base_dir = 'C:/Your/Path/Here'
+
+// Function to process each difficulty file
+async function processFile(dir: string, file: string) {
+  let difficulty = file.split('.')[0]
+  const ouf = join(dir, `${difficulty}.json`)
+  // Check if the file already exists
+  if (existsSync(ouf)) {
+    console.log(`File ${ouf} already exists, skipping...`)
+    return
+  }
+  let sus = readFileSync(join(dir, file), 'utf8')
+  const parsed = SekaiSusReader.Read(sus)
+  parsed.slides = parsed.slides.filter(slide => slide != null)
+  writeFileSync(join(dir, `${difficulty}.json`), JSON.stringify(parsed, null, 2))
+  console.log(`Processed ${dir}/${file}`)
+}
+
+// Main processing function
+const processDirectory = async () => {
+  console.log('Listing directories...')
+  const directories = readdirSync(base_dir)
+  let processedCount = 0
+  console.log(`Found ${directories.length} directories`)
+
+  // Use Promise.all to handle multiple directories in parallel
+  await Promise.all(
+    directories.map(async (raw_id) => {
+      let dir = join(base_dir, raw_id)
+      const files = readdirSync(dir)
+
+      await Promise.all(files.map(async (file) => {
+        await processFile(dir, file)
+        processedCount++
+        // Simple progress report
+        console.log(`Processed ${processedCount} out of ${directories.length * files.length} files`)
+      }))
+    })
+  )
+  console.log('Processing completed!')
+}
+
+// Execute the main function
+processDirectory().catch(console.error)
+

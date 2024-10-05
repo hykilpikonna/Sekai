@@ -1,14 +1,44 @@
 import inspect
+import json
+import pickle
+import time
 from pathlib import Path
-from typing import Any
 
 import cv2
+import imagehash
 import numpy as np
 import toml
-from hypy_utils import SafeNamespace
+from PIL import Image
+from imagehash import ImageHash
 from numpy import ndarray
 
-from .config import DEBUG
+from .config import config
+
+
+def ncc_sim(a: ndarray, b: ndarray) -> float:
+    """
+    Compute the normalized cross-correlation between two arrays (images)
+
+    NCC sim is much faster than SSIM, but also less accurate.
+
+    In [97]: %time normalized_cross_correlation(part[:-2, :-2, 0], part[2:, 2:, 0])
+    CPU times: user 63 µs, sys: 788 µs, total: 851 µs
+    Wall time: 743 µs
+    Out[97]: 0.9743215
+
+    In [98]: %time ssim(part[:-2, :-2, 0], part[2:, 2:, 0])
+    CPU times: user 8.49 ms, sys: 940 µs, total: 9.43 ms
+    Wall time: 8.41 ms
+    Out[98]: 0.6746549805785002
+    """
+    if a.shape != b.shape:
+        raise ValueError(f"Array shapes do not match: {a.shape} != {b.shape}")
+
+    a = a.astype(np.float32)
+    b = b.astype(np.float32)
+
+    # Compute the normalized cross-correlation
+    return np.sum(a * b) / (np.sqrt(np.sum(a ** 2)) * np.sqrt(np.sum(b ** 2)))
 
 
 def intersection(corner1: tuple[int, int], corner2: tuple[int, int], y_line: int) -> int:

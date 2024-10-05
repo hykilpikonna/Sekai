@@ -1,0 +1,18 @@
+[device]
+# 可以指定一个特定的 ADB 设备
+adb_serial = ''
+# 屏幕尺寸 (宽, 高)
+screen_size = [1080, 544]
+# 下落条的左下、左上、右上、右下四个顶点的坐标
+corner_ld = [67, 543]
+corner_lt = [518, 0]
+corner_rt = [563, 0]
+corner_rd = [1012, 543]
+# 用来识别谱面开始的竖向线的 Y 坐标
+visual_y = 100
+# 模拟触摸的 Y 坐标
+touch_y = 500
+# 视频串流的码率
+bitrate = 8_000_000
+# 视频串流的帧率
+fps = 60

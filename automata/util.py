@@ -56,7 +56,7 @@ class SongFinder:
         self.music_data = {it['id']: it for it in json.loads(
             (Path(__file__).parent / 'data/musics.json').read_text())}
 
-    def find(self, cover: ndarray) -> str | None:
+    def find(self, cover: ndarray) -> tuple[int, dict]:
         # Covert to PIL image
         cover_hash = imagehash.phash(Image.fromarray(cv2.resize(cover, (740, 740))))
         # Find the lowest hash distance
@@ -106,6 +106,15 @@ class ImageFinder:
         self.crop = cv2.imread(str(p / 'crop.png'))[1:, 1:]
         self.gray = cv2.cvtColor(self.crop, cv2.COLOR_BGR2GRAY)
 
+    def get_region(self, frame: ndarray) -> ndarray:
+        """
+        Crop the UI element from the screen frame
+
+        :param frame: The screen frame
+        :return: The cropped UI element
+        """
+        return frame[self.start[1]:self.end[1], self.start[0]:self.end[0]]
+
     def check(self, frame: ndarray) -> tuple[int, int] | None:
         """
         Check whether the UI element is on the screen
@@ -113,7 +122,7 @@ class ImageFinder:
         :param frame: The screen frame (grayscale)
         :return: The center position (including offset) when found, None otherwise
         """
-        region = frame[self.start[1]:self.end[1], self.start[0]:self.end[0]]
+        region = self.get_region(frame)
 
         # Check if frame is grayscale
         if len(region.shape) == 3:

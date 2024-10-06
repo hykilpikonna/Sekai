@@ -127,6 +127,13 @@ def on_frame(new_frame: ndarray):
             return
 
 
+def control():
+    # The control thread: Wait for user input
+    while True:
+        if input() == 'quit':
+            os._exit(0)
+
+
 def run():
     global client, ctx
 
@@ -156,8 +163,8 @@ def run():
 
     # Start the client
     client.start(threaded=True)
+    threading.Thread(target=control).start()
     loop()
-    os._exit(0)
 
 
 if __name__ == '__main__':

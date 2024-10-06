@@ -18,7 +18,7 @@ class DeviceConfig:
     visual_y: int
     visual_y2: int
     delay: float
-    delay2: float
+    delay_2: float
     touch_y: int
     bitrate: int
     fps: int

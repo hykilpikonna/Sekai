@@ -114,7 +114,7 @@ class SekaiGamer:
             # Second visual y
             if check_start(dev.visual_y2, visual_lc2, visual_rc2):
                 self.started = True
-                self.igt = int(time.time_ns() + dev.delay2)
+                self.igt = int(time.time_ns() + dev.delay_2)
 
             if self.started:
                 print("Playing")

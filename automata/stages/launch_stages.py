@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import cv2
@@ -20,14 +21,21 @@ class MatchAndClick(SekaiStage):
         # Load images
         self.images = {it: ImageFinder(it) for it in [
             # Buttons for the song result screen
-            'result_first',
+            'result_first', 'result_first_mp',
             'result_next', 'result_back',
             # When on desktop, in the start menu, etc
             'launch_desktop_icon', 'launch_start',
             # Announcement close button
             'home_announcement_detect',
-            # Home live solo button (TODO: Implement multiplayer
-            'home_live_solo', 'solo_start', 'solo_start_play'
+            # Difficulty select
+            'master_not_selected',
+            # Home live button (TODO: Make choosing between solo and multi a config option)
+            'home_live_solo',
+            # 'home_live_multi',
+            # Single-player related
+            'solo_start', 'solo_start_play',
+            # Multiplayer related
+            'mp_disconnect', 'mp_ready', 'mp_select', 'mp_veteran'
         ]}
 
     def is_stage(self, ctx: SekaiStageContext) -> bool:
@@ -37,6 +45,8 @@ class MatchAndClick(SekaiStage):
             if pos:
                 ctx.cache['match-name'] = name
                 ctx.cache['match-pos'] = pos
+                if 'mp_matching_since' in ctx.store:
+                    del ctx.store['mp_matching_since']
                 return True
 
     def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
@@ -50,16 +60,42 @@ class MatchAndClick(SekaiStage):
             exp.add('song_start')
 
         ac = [ATap(*pos)]
-        if name == 'result_first':
+        if name.startswith('result_first'):
             # This stage often gets stuck, we need to click multiple times on different positions
             ac = []
-            for i in range(10):
-                dx, dy, dt = np.random.randint(-10, 10), np.random.randint(-10, 10), np.random.uniform(0.01, 0.2)
+            for i in range(20):
+                dx, dy, dt = np.random.randint(-50, 50), np.random.randint(-50, 50), np.random.uniform(0.01, 0.3)
                 ac.append(ADelay(dt))
                 ac.append(ATap(pos[0] + dx, pos[1] + dy))
 
         # Click the image
         return SekaiStageOp(f"click {name}", ac, exp)
+
+
+# When it's matching, we don't want to click anything and we also don't want to time out
+# So we just wait until the matching is done
+class SWaitMPMatching(SekaiStage):
+    img: ImageFinder
+    back: ImageFinder
+
+    def __init__(self):
+        super().__init__("wait_mp_matching")
+        self.img = ImageFinder('mp_matching')
+        self.back = ImageFinder('mp_back')
+
+    def is_stage(self, ctx: SekaiStageContext) -> bool:
+        if self.img.check(ctx.frame_gray):
+            if 'mp_matching_since' not in ctx.store:
+                ctx.store['mp_matching_since'] = time.time()
+            return True
+
+    def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
+        # If we waited longer than 3 minutes, click back and try again
+        if time.time() - ctx.store['mp_matching_since'] > 60:
+            log.error("MP matching timed out")
+            del ctx.store['mp_matching_since']
+            return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())
+        return SekaiStageOp("wait_mp_matching", [ADelay(1)], set())
 
 
 difficulties = {

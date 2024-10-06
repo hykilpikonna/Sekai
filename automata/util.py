@@ -54,7 +54,7 @@ class SongFinder:
             self.cover_hashes = pickle.load(f)
         # Load music data
         self.music_data = {it['id']: it for it in json.loads(
-            (Path(__file__).parent / 'data/musics.json').read_text())}
+            (Path(__file__).parent / 'data/musics.json').read_text('utf-8'))}
 
     def find(self, cover: ndarray) -> tuple[int, dict]:
         # Covert to PIL image

@@ -44,7 +44,7 @@ def _dict_to_namespace(d: dict) -> SafeNamespace:
     return SafeNamespace(**{k: _dict_to_namespace(v) if isinstance(v, dict) else v for k, v in d.items()})
 
 
-config: Config = [toml_to_namespace(Path(f).read_text()) for f in ['config.toml', 'automata/config.toml']
+config: Config = [toml_to_namespace(Path(f).read_text('utf-8')) for f in ['config.toml', 'automata/config.toml']
                   if Path(f).is_file()][0]
 
 global_dict = {}

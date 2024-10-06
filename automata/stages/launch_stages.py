@@ -166,7 +166,7 @@ class SongStartNext(SekaiStage):
         if not p.exists():
             log.error(f"Notes not found: {p}")
             return SekaiStageOp("song_start", [ADelay(0.01)], set())
-        notes = json.loads(p.read_text())
+        notes = json.loads(p.read_text('utf-8'))
 
         log.info(f"> Song start: {song['title']} ({d})")
         global_dict['playing'] = SekaiGamer(ctx.client, notes)

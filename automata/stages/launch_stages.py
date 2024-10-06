@@ -4,13 +4,12 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from six import print_
 
 from ..actions import ATap, ADelay
+from ..config import log, config, global_dict
 from ..gamer import SekaiGamer
 from ..models import SekaiStage, SekaiStageContext, SekaiStageOp
 from ..util import ImageFinder, SongFinder
-from ..config import log, config, global_dict
 
 
 class MatchAndClick(SekaiStage):
@@ -35,7 +34,10 @@ class MatchAndClick(SekaiStage):
             # Single-player related
             'solo_start', 'solo_start_play',
             # Multiplayer related
-            'mp_disconnect', 'mp_ready', 'mp_select', 'mp_veteran'
+            'mp_disconnect', 'mp_ready', 'mp_veteran',
+            # mp_select will select your specified song, while mp_omakase will leave it to other players
+            'mp_select',
+            # 'mp_omakase'
         ]}
 
     def is_stage(self, ctx: SekaiStageContext) -> bool:
@@ -63,7 +65,7 @@ class MatchAndClick(SekaiStage):
         if name.startswith('result_first'):
             # This stage often gets stuck, we need to click multiple times on different positions
             ac = []
-            for i in range(20):
+            for i in range(6):
                 dx, dy, dt = np.random.randint(-50, 50), np.random.randint(-50, 50), np.random.uniform(0.01, 0.3)
                 ac.append(ADelay(dt))
                 ac.append(ATap(pos[0] + dx, pos[1] + dy))
@@ -90,8 +92,8 @@ class SWaitMPMatching(SekaiStage):
             return True
 
     def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
-        # If we waited longer than 3 minutes, click back and try again
-        if time.time() - ctx.store['mp_matching_since'] > 60:
+        # If we waited longer than 30 seconds, click back and try again
+        if time.time() - ctx.store['mp_matching_since'] > 30:
             log.error("MP matching timed out")
             del ctx.store['mp_matching_since']
             return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())

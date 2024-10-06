@@ -1,5 +1,6 @@
 import math
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -27,7 +28,7 @@ touch_lc, touch_rc = lc_rc(dev.touch_y)
 touch_positions = list(range(touch_lc, touch_rc + 1, (touch_rc - touch_lc) // 12))
 air_delta = 400
 air_time_delta = 50
-light_threshold = int(0.8 * 255)
+light_threshold = int(0.7 * 255)
 
 # Colors for late/early
 late_early_px = (1017, 604)
@@ -37,11 +38,34 @@ late_early_ms = 0.5
 late_early_save = Path(__file__).parent / "delay.txt"
 
 
+def interpolate_y() -> tuple[list[tuple[int, int]], tuple[ndarray, ndarray], list[int], list[float]]:
+    """
+    We have the visual_y representing the start line of the note detection, and visual_y2 representing
+    the end. We want to interpolate 10 lines in between, and on each line, 12 points.
+
+    :return: A flattend 1d list of (x, y) coordinates, A numpy query that gives you the points when used on frame,
+        A list of y coordinates, A list of delays
+    """
+    ny = 11
+    y = np.linspace(dev.visual_y, dev.visual_y2, ny).astype(int).tolist()
+    delays = np.linspace(dev.delay, dev.delay_2, ny).tolist()
+    pt = [[(x, y) for x in range(lc + (rc - lc) // 24, rc, (rc - lc) // 12)]
+          for y, (lc, rc) in {y: lc_rc(y) for y in y}.items()]
+    flat = [p for row in pt for p in row]
+    rows, cols = zip(*flat)
+    query = (np.array(rows), np.array(cols))
+    return flat, query, y, delays
+
+
+ys = interpolate_y()
+
+
 class SekaiGamer:
     # Music notes data
     taps: list[dict]
     slides: list[list[dict]]
 
+    # In-game time in nanoseconds
     igt: int = 0
     started: bool = False
 
@@ -75,7 +99,7 @@ class SekaiGamer:
             t['tid'] = tid
             # Reduce 5ms for flicks
             if t['r'] == 'air':
-                t['t'] -= 5
+                t['t'] -= air_time_delta / 2
 
         slides = [s for s in notes['slides'] if s]
         for s in slides:
@@ -84,7 +108,7 @@ class SekaiGamer:
                 norm_lane(t)
                 t['tid'] = tid
                 if t['airNote'] and t['airNote']['type'] == 'flick':
-                    t['t'] -= 5
+                    t['t'] -= air_time_delta / 2
 
         self.taps, self.slides = taps, slides
 
@@ -100,30 +124,35 @@ class SekaiGamer:
         # Hasn't started yet
         if not self.started:
             # Grayscale frame efficiently using numpy
-            gray: ndarray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray: ndarray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).T
 
-            def check_start(vy: int, lc: int, rc: int) -> bool:
-                v = gray[vy, lc:rc]
-                return any(v[i] > light_threshold for i in range(len(v) // 2, len(v), len(v) // 12))
+            # Find if one match is found
+            points = gray[ys[1]] > light_threshold
+            if not np.any(points):
+                return
 
-            # If any area is lighted up, we are ready to play
-            if check_start(dev.visual_y, visual_lc, visual_rc):
-                self.started = True
-                self.igt = int(time.time_ns() + dev.delay)
+            # Find index where the first match is found
+            first = np.argmax(points, axis=0)
+            y = ys[0][first][1]
+            delay = ys[3][ys[2].index(y)]
 
-            # Second visual y
-            if check_start(dev.visual_y2, visual_lc2, visual_rc2):
-                self.started = True
-                self.igt = int(time.time_ns() + dev.delay_2)
+            # Start
+            self.started = True
+            self.igt = int(time.time_ns() + delay * 1_000_000)
 
-            if self.started:
-                print("Playing")
-                # For debug: draw a line on the visual line and save the frame
-                frame[dev.visual_y, visual_lc:visual_rc] = 255
-                frame[dev.visual_y2, visual_lc2:visual_rc2] = 255
-                date = time.strftime("%Y%m%d-%H%M%S")
-                Path("log").mkdir(exist_ok=True)
-                cv2.imwrite(f"log/{date}.png", frame)
+            # Remove the first note's start time from igt
+            # TODO: Index error when there are no notes / slides
+            self.igt -= min(self.taps[0]['t'], self.slides[0][0]['t']) * 1_000_000
+
+            print("Playing")
+            # For debug: draw a line on the visual line and save the frame
+            gray[dev.visual_y, visual_lc:visual_rc] = 255
+            gray[dev.visual_y2, visual_lc2:visual_rc2] = 255
+            # Draw every dot
+            gray[ys[1]] = 255
+            date = time.strftime("%Y%m%d-%H%M%S")
+            Path("log").mkdir(exist_ok=True)
+            cv2.imwrite(f"log/{date}.png", gray.T)
 
             return
 
@@ -217,8 +246,18 @@ class SekaiGamer:
             self.touch(tpo, self.y, scrcpy.ACTION_DOWN, tid)
 
         # If everything is done, unset global_dict['playing']
-        if not self.taps and not self.slides and not self.slide_ongoing:
+        if not self.taps and not self.slides and not self.slide_ongoing and not self.air_queue:
             print("Done")
             del global_dict['playing']
             # late_early_save.write_text(str(self.late_early_adjust))
-            os._exit(0)
+            thread = threading.Thread(target=exit_thread)
+            thread.start()
+
+
+def exit_thread():
+    time.sleep(5)
+    os._exit(0)
+
+
+if __name__ == '__main__':
+    print(ys)

@@ -157,6 +157,7 @@ def run():
     # Start the client
     client.start(threaded=True)
     loop()
+    os._exit(0)
 
 
 if __name__ == '__main__':

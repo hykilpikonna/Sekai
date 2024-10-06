@@ -16,7 +16,7 @@ class MatchAndClick(SekaiStage):
     images: dict[str, ImageFinder]
 
     def __init__(self):
-        super().__init__("match_and_click")
+        super().__init__("0_match_and_click")
         # Load images
         self.images = {it: ImageFinder(it) for it in [
             # Buttons for the song result screen
@@ -29,12 +29,15 @@ class MatchAndClick(SekaiStage):
             # Difficulty select
             'master_not_selected',
             # Home live button (TODO: Make choosing between solo and multi a config option)
-            'home_live_solo',
-            # 'home_live_multi',
+            # 'home_live_solo',
+            'home_live_multi',
             # Single-player related
             'solo_start', 'solo_start_play',
             # Multiplayer related
-            'mp_disconnect', 'mp_ready', 'mp_veteran',
+            'mp_disconnect', 'mp_ready', 
+            # Using mp_veteran will match to a random room
+            # 'mp_veteran',
+            'mp_create', 'mp_create_confirm', 'mp_create_open', 'mp_create_open_confirm', 'mp_create_again',
             # mp_select will select your specified song, while mp_omakase will leave it to other players
             'mp_select',
             # 'mp_omakase'
@@ -59,16 +62,15 @@ class MatchAndClick(SekaiStage):
         # Special case when name = 'solo_start_play': switch to song playing mode
         exp = set()
         if name == 'solo_start_play':
-            exp.add('song_start')
+            exp = {'song_start'}
+        if name.startswith('mp_create_confirm'):
+            exp = {'0_match_and_click'}
 
         ac = [ATap(*pos)]
-        if name.startswith('result_first'):
-            # This stage often gets stuck, we need to click multiple times on different positions
-            ac = []
-            for i in range(6):
-                dx, dy, dt = np.random.randint(-50, 50), np.random.randint(-50, 50), np.random.uniform(0.01, 0.3)
-                ac.append(ADelay(dt))
-                ac.append(ATap(pos[0] + dx, pos[1] + dy))
+
+        # Save a screenshot on result
+        if name.startswith('result'):
+            ctx.save()
 
         # Click the image
         return SekaiStageOp(f"click {name}", ac, exp)
@@ -97,7 +99,7 @@ class SWaitMPMatching(SekaiStage):
             log.error("MP matching timed out")
             del ctx.store['mp_matching_since']
             return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())
-        return SekaiStageOp("wait_mp_matching", [ADelay(1)], set())
+        return SekaiStageOp("wait_mp_matching", [ADelay(1)], {"wait_mp_matching", "0_match_and_click"})
 
 
 difficulties = {
@@ -134,7 +136,7 @@ class SongStart(SekaiStage):
     def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
         # Pass a delay to ensure the song starts
         ctx.store['song_start_next'] = True
-        return SekaiStageOp("song_start", [ADelay(0.8)], {'song_start_next'})
+        return SekaiStageOp("song_start", [ADelay(0.6)], {'song_start_next'})
 
 
 class SongStartNext(SekaiStage):

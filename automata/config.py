@@ -16,6 +16,9 @@ class DeviceConfig:
     corner_rt: tuple[int, int]
     corner_rd: tuple[int, int]
     visual_y: int
+    visual_y2: int
+    delay: float
+    delay2: float
     touch_y: int
     bitrate: int
     fps: int

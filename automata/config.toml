@@ -1,8 +1,10 @@
-debug = true
+debug = false
 # TM_CCOEFF 图像匹配的阈值 (0.0 ~ 1.0)
 image_threshold = 0.9
 # 游戏界面操作检测画面的间隔时间 (秒)
-frame_delay = 0.5
+frame_delay = 0.3
+# 游戏谱面路径
+music_path = 'Y:\Mugs\Sekai\sekai-jp-assets\music\music_score\0{ID}_01_rip'
 
 [device]
 # 可以指定一个特定的 ADB 设备
@@ -15,7 +17,10 @@ corner_lt = [1036, 0]
 corner_rt = [1126, 0]
 corner_rd = [2024, 1080]
 # 用来识别谱面开始的竖向线的 Y 坐标
-visual_y = 200
+visual_y = 19
+delay = 530
+visual_y2 = 30
+delay_2 = 520
 # 模拟触摸的 Y 坐标
 touch_y = 1000
 # 视频串流的码率

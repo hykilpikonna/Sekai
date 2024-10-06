@@ -1,4 +1,5 @@
 import math
+import os
 import time
 from pathlib import Path
 
@@ -12,11 +13,15 @@ from .config import config, global_dict
 
 dev = config.device
 
+
+def lc_rc(y: int) -> tuple[int, int]:
+    return util.intersection(dev.corner_ld, dev.corner_lt, y), util.intersection(dev.corner_rd, dev.corner_rt, y)
+
+
 # Calculate the visual corners
-visual_lc: int = util.intersection(dev.corner_ld, dev.corner_lt, dev.visual_y)
-visual_rc: int = util.intersection(dev.corner_rd, dev.corner_rt, dev.visual_y)
-touch_lc: int = util.intersection(dev.corner_ld, dev.corner_lt, dev.touch_y)
-touch_rc: int = util.intersection(dev.corner_rd, dev.corner_rt, dev.touch_y)
+visual_lc, visual_rc = lc_rc(dev.visual_y)
+visual_lc2, visual_rc2 = lc_rc(dev.visual_y2)
+touch_lc, touch_rc = lc_rc(dev.touch_y)
 
 # Pre-calculate touch positions for each 12 touch areas (this would be 13 values)
 touch_positions = list(range(touch_lc, touch_rc + 1, (touch_rc - touch_lc) // 12))
@@ -30,8 +35,6 @@ late = np.array((252, 85, 139))[[2, 1, 0]]
 fast = np.array((85, 170, 255))[[2, 1, 0]]
 late_early_ms = 0.5
 late_early_save = Path(__file__).parent / "delay.txt"
-# The time (seconds) from when a note appear to when it needs to be tapped
-lane_speed = 22 / 30
 
 
 class SekaiGamer:
@@ -47,15 +50,15 @@ class SekaiGamer:
     slide_ongoing: list[list[dict]] = []
     y = dev.touch_y
 
-    late_early_adjust = 150 * 1_000_000
+    # Late: decrease, Fast: increase
     late_early_last_adjust = 0
 
     def __init__(self, client: scrcpy.Client, notes: dict):
         self.client = client
         self.load_song(notes)
-        if late_early_save.exists():
-            self.late_early_adjust = int(late_early_save.read_text().strip())
-            print("Loaded late/early adjust:", self.late_early_adjust)
+        # if late_early_save.exists():
+        #     self.late_early_adjust = int(late_early_save.read_text().strip())
+        #     print("Loaded late/early adjust:", self.late_early_adjust)
 
     def load_song(self, notes: dict):
         taps = notes['timestampNotes']
@@ -71,8 +74,8 @@ class SekaiGamer:
             norm_lane(t)
             t['tid'] = tid
             # Reduce 5ms for flicks
-            # if t['r'] == 'air':
-            #     t['t'] -= 5
+            if t['r'] == 'air':
+                t['t'] -= 5
 
         slides = [s for s in notes['slides'] if s]
         for s in slides:
@@ -80,8 +83,8 @@ class SekaiGamer:
             for t in s:
                 norm_lane(t)
                 t['tid'] = tid
-                # if t['airNote'] and t['airNote']['type'] == 'flick':
-                # t['t'] -= 5
+                if t['airNote'] and t['airNote']['type'] == 'flick':
+                    t['t'] -= 5
 
         self.taps, self.slides = taps, slides
 
@@ -99,22 +102,28 @@ class SekaiGamer:
             # Grayscale frame efficiently using numpy
             gray: ndarray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # Get the visual line (a 1D line from visual_lc to visual_rc)
-            v = gray[dev.visual_y, visual_lc:visual_rc]
-
-            # Separate the 1d line into 12 areas
-            area_len = len(v) // 12
-            det_pixels = list(range(area_len // 2, len(v), area_len))
+            def check_start(vy: int, lc: int, rc: int) -> bool:
+                v = gray[vy, lc:rc]
+                return any(v[i] > light_threshold for i in range(len(v) // 2, len(v), len(v) // 12))
 
             # If any area is lighted up, we are ready to play
-            if any(v[i] > light_threshold for i in det_pixels):
+            if check_start(dev.visual_y, visual_lc, visual_rc):
                 self.started = True
-                # Late: decrease, Fast: increase
-                # igt = time.time_ns() + 0.881 * 1_000_000_000
-                # igt = time.time_ns() + 0.864 * 1_000_000_000
-                # self.igt = int(time.time_ns() + 0.286 * 1_000_000_000)
-                self.igt = int(time.time_ns() + 170 * 1_000_000)
+                self.igt = int(time.time_ns() + dev.delay)
+
+            # Second visual y
+            if check_start(dev.visual_y2, visual_lc2, visual_rc2):
+                self.started = True
+                self.igt = int(time.time_ns() + dev.delay2)
+
+            if self.started:
                 print("Playing")
+                # For debug: draw a line on the visual line and save the frame
+                frame[dev.visual_y, visual_lc:visual_rc] = 255
+                frame[dev.visual_y2, visual_lc2:visual_rc2] = 255
+                date = time.strftime("%Y%m%d-%H%M%S")
+                Path("log").mkdir(exist_ok=True)
+                cv2.imwrite(f"log/{date}.png", frame)
 
             return
 
@@ -123,11 +132,11 @@ class SekaiGamer:
             late_early = frame[late_early_px[1], late_early_px[0]]
             # Check distance should be less than 5
             if np.linalg.norm(late_early - late) < 30:
-                print(f"Late, slowing down {late_early_ms} ms")
+                print(f"Late, decreasing in-game time by {late_early_ms} ms")
                 self.igt -= late_early_ms * 1_000_000
                 self.late_early_last_adjust = ela
             elif np.linalg.norm(late_early - fast) < 30:
-                print(f"Fast, speeding up {late_early_ms} ms")
+                print(f"Fast, increasing in-game time by {late_early_ms} ms")
                 self.igt += late_early_ms * 1_000_000
                 self.late_early_last_adjust = ela
 
@@ -211,4 +220,5 @@ class SekaiGamer:
         if not self.taps and not self.slides and not self.slide_ongoing:
             print("Done")
             del global_dict['playing']
-            late_early_save.write_text(str(self.late_early_adjust))
+            # late_early_save.write_text(str(self.late_early_adjust))
+            os._exit(0)

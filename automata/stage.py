@@ -53,7 +53,7 @@ def find_stage(ctx: SekaiStageContext, stages: dict[str, SekaiStage]) -> SekaiSt
     # Check the expected stage first
     expect = set(ctx.last_op.next_stage) if ctx.last_op else set()
 
-    for stage_name in expect:
+    for stage_name in sorted(expect):
         if stage_name not in stages:
             logging.error(f'[STAGE] Stage {stage_name} is not found in the stages')
             continue
@@ -63,10 +63,10 @@ def find_stage(ctx: SekaiStageContext, stages: dict[str, SekaiStage]) -> SekaiSt
             return stage
 
     # Check the remaining stages
-    for stage_name in set(stages.keys()) - set(expect):
+    for stage_name in sorted(set(stages.keys()) - set(expect)):
         stage = stages[stage_name]
         if stage.is_stage(ctx):
-            logging.warn(f'[STAGE] Stage {stage_name} is not expected. Expected stages are: {expect}')
+            logging.warning(f'[STAGE] Stage {stage_name} is not expected. Expected stages are: {expect}')
             return stage
 
 

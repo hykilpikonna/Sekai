@@ -2,6 +2,7 @@ import random
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 
 import cv2
 import scrcpy
@@ -67,6 +68,12 @@ class SekaiStageContext:
         self.frame = frame
         self.frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         self.time = time.time_ns() // 1_000_000
+
+    def save(self):
+        # Save an image screenshot
+        date = time.strftime("%Y%m%d-%H%M%S")
+        Path("log").mkdir(exist_ok=True)
+        cv2.imwrite(f"log/{date}.png", self.frame)
 
 
 class SekaiStage(ABC):

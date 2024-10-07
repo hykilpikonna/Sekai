@@ -3,6 +3,7 @@ import SusAnalyzer, { type ISusNotes, type ISusScore } from "sus-analyzer";
 
 interface Note {
   t: number;  // Absolute timestamp in milliseconds
+  tid: number;  // Unique ID
   measure: number;
   tick: number;
   r: string;  // Raw type
@@ -20,10 +21,9 @@ const pop = (obj: { [key: string]: Note }, key: string) => {
   return value
 }
 
-export function read(sus: string): { timestampNotes: Note[]; slides: Note[][]; } {
+export function read(sus: string): { taps: Note[]; slides: Note[][]; } {
   // Ref: https://github.com/PurplePalette/pjsekai-score-doc/wiki/%E4%BD%9C%E6%88%90%E6%96%B9%E6%B3%95
   const data: ISusScore = SusAnalyzer.getScore(sus, 480)
-  let result: Note[] = []
 
   // Calculate the starting milliseconds of each measure.
   let accumulator = 0
@@ -39,9 +39,8 @@ export function read(sus: string): { timestampNotes: Note[]; slides: Note[][]; }
 
   const key = (note: Note | ISusNotes) => `${note.measure}_${note.tick}_${note.lane}`
   const attrs = (note: ISusNotes) => ({ t: calcTime(note),
-    lane: note.lane, tick: note.tick, measure: note.measure, width: note.width,
+    lane: note.lane, tick: note.tick, measure: note.measure, width: note.width, tid: 0
   })
-
 
   // use to remove overlapping tap + flick or tap + slide head
   let shortNotesMap: { [key: string]: Note } = Object.fromEntries(data.shortNotes
@@ -56,16 +55,17 @@ export function read(sus: string): { timestampNotes: Note[]; slides: Note[][]; }
     .map(note => [key(note), note]))
 
   // Slide notes
+  let tid = 0
   const sTypes = ["unknown", "slide head", "slide tail", "slide waypoint hvcombo", "unknown", "slide waypoint nocombo"]
   let slides: Note[][] = data.slideNotes.map(((notes, slideId) => notes
     .map(note => ({ type: sTypes[note.noteType], r: "slide", ...attrs(note), slideId,
       shortNote: pop(shortNotesMap, key(note)), airNote: pop(airs, key(note)) }))
     .toSorted((a, b) => a.t - b.t)))
 
-  // Add to result
-  slides.forEach(slide => result.push(...slide))
-  result.push(...Object.values(shortNotesMap), ...Object.values(airs))
-  result.sort((a, b) => a.t - b.t)
+  // Add to result, sort by time, and add a unique ID
+  const taps = [...Object.values(shortNotesMap), ...Object.values(airs)]
+    .sort((a, b) => a.t - b.t).map(it => ({...it, tid: tid++}))
+  slides.forEach((slide) => { tid++; slide.forEach(note => note.tid = tid++) })
 
-  return { timestampNotes: result, slides }
+  return { taps, slides }
 }

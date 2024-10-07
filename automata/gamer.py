@@ -6,7 +6,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import scrcpy
+from scrcpy import ACTION_MOVE, Client, ACTION_UP, ACTION_DOWN
+from hypy_utils import printc
 from numpy import ndarray
 
 from . import util
@@ -20,8 +21,6 @@ def lc_rc(y: int) -> tuple[int, int]:
 
 
 # Calculate the visual corners
-visual_lc, visual_rc = lc_rc(dev.visual_y)
-visual_lc2, visual_rc2 = lc_rc(dev.visual_y2)
 touch_lc, touch_rc = lc_rc(dev.touch_y)
 
 # Pre-calculate touch positions for each 12 touch areas (this would be 13 values)
@@ -75,45 +74,59 @@ class SekaiGamer:
     y = dev.touch_y
 
     # Late: decrease, Fast: increase
+    late_early_total = 0
     late_early_last_adjust = 0
 
-    def __init__(self, client: scrcpy.Client, notes: dict):
+    def __init__(self, client: Client, notes: dict):
         self.client = client
-        self.load_song(notes)
-        # if late_early_save.exists():
-        #     self.late_early_adjust = int(late_early_save.read_text().strip())
-        #     print("Loaded late/early adjust:", self.late_early_adjust)
-
-    def load_song(self, notes: dict):
-        taps = notes['timestampNotes']
-        taps = [t for t in taps if 2 <= t['lane'] <= 13 and t['type'] != 'diamond' and t['r'] in {'short', 'air'}]
+        self.taps, self.slides = notes['taps'], notes['slides']
 
         def norm_lane(t):
             lane = t['lane'] - 2
             t['tpo'] = (touch_positions[lane] + touch_positions[lane + t['width']]) / 2
-
-        tid = 0
-        for t in taps:
-            tid += 1
-            norm_lane(t)
-            t['tid'] = tid
-            # Reduce 5ms for flicks
-            if t['r'] == 'air':
+            if t['r'] == 'air' or (t.get('airNote') and t['airNote'].get('type') == 'flick'):
                 t['t'] -= air_time_delta / 2
 
-        slides = [s for s in notes['slides'] if s]
-        for s in slides:
-            tid += 1
-            for t in s:
-                norm_lane(t)
-                t['tid'] = tid
-                if t.get('airnote') and t['airNote'].get('type') == 'flick':
-                    t['t'] -= air_time_delta / 2
-
-        self.taps, self.slides = taps, slides
+        [norm_lane(t) for t in self.taps]
+        [norm_lane(t) for s in self.slides for t in s]
 
     def touch(self, x: int | float, y: int | float, action: int, tid: int):
         self.client.control.touch(int(round(x)), int(round(y)), action, tid)
+
+    def adjust(self, is_fast: bool, is_late: bool) -> None:
+        """ Adjust fast or late by diff ms """
+        diff = [0, -1, 1][is_late * 1 + is_fast * 2] * late_early_ms
+        self.igt += diff * 1_000_000
+        self.late_early_total += diff
+        diff != 0 and printc(f'{'&cLate: -' if is_late else '&bFast: +'}, {abs(diff)} ms')
+
+    def find_start(self, frame: ndarray) -> None:
+        """ Find if we're ready to start """
+        gray: ndarray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).T
+
+        # Find if one match is found
+        points = gray[ys[1]] > light_threshold
+        if not np.any(points):
+            return
+
+        # Find index where the first match is found
+        first = np.argmax(points, axis=0)
+        y = ys[0][first][1]
+        delay = ys[3][ys[2].index(y)]
+
+        # Start
+        self.started = True
+        self.igt = int(time.time_ns() + delay * 1_000_000)
+
+        # Remove the first note's start time from igt
+        self.igt -= min(self.taps[0]['t'], self.slides[0][0]['t']) * 1_000_000
+
+        print("Playing")
+        # For debug: draw a line on the visual line and save the frame
+        gray[ys[1]] = 255
+        date = time.strftime("%Y%m%d-%H%M%S")
+        Path("log").mkdir(exist_ok=True)
+        cv2.imwrite(f"log/{date}.png", gray.T)
 
     def on_frame(self, frame: ndarray) -> None:
         # Elapsed ms since the start
@@ -123,51 +136,13 @@ class SekaiGamer:
 
         # Hasn't started yet
         if not self.started:
-            # Grayscale frame efficiently using numpy
-            gray: ndarray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).T
-
-            # Find if one match is found
-            points = gray[ys[1]] > light_threshold
-            if not np.any(points):
-                return
-
-            # Find index where the first match is found
-            first = np.argmax(points, axis=0)
-            y = ys[0][first][1]
-            delay = ys[3][ys[2].index(y)]
-
-            # Start
-            self.started = True
-            self.igt = int(time.time_ns() + delay * 1_000_000)
-
-            # Remove the first note's start time from igt
-            # TODO: Index error when there are no notes / slides
-            self.igt -= min(self.taps[0]['t'], self.slides[0][0]['t']) * 1_000_000
-
-            print("Playing")
-            # For debug: draw a line on the visual line and save the frame
-            gray[dev.visual_y, visual_lc:visual_rc] = 255
-            gray[dev.visual_y2, visual_lc2:visual_rc2] = 255
-            # Draw every dot
-            gray[ys[1]] = 255
-            date = time.strftime("%Y%m%d-%H%M%S")
-            Path("log").mkdir(exist_ok=True)
-            cv2.imwrite(f"log/{date}.png", gray.T)
-
+            self.find_start(frame)
             return
 
         # Detect late/early (in-between delay 0.5s)
         if self.late_early_last_adjust + 500 < ela:
-            late_early = frame[late_early_px[1], late_early_px[0]]
-            # Check distance should be less than 5
-            if np.linalg.norm(late_early - late) < 30:
-                print(f"Late, decreasing in-game time by {late_early_ms} ms")
-                self.igt -= late_early_ms * 1_000_000
-                self.late_early_last_adjust = ela
-            elif np.linalg.norm(late_early - fast) < 30:
-                print(f"Fast, increasing in-game time by {late_early_ms} ms")
-                self.igt += late_early_ms * 1_000_000
-                self.late_early_last_adjust = ela
+            color = frame[late_early_px[1], late_early_px[0]]
+            self.adjust(np.linalg.norm(color - fast) < 30, np.linalg.norm(color - late) < 30)
 
         # Pop any note that is ready to be played
         todo = []
@@ -179,21 +154,21 @@ class SekaiGamer:
             end, tpo, tid = t
             # Check if it's done
             if end < ela:
-                self.touch(tpo, self.y - air_delta, scrcpy.ACTION_UP, tid)
+                self.touch(tpo, self.y - air_delta, ACTION_UP, tid)
                 self.air_queue.remove(t)
                 continue
             # Interpolate the position
             y = self.y - air_delta + (self.y - air_delta - self.y) * (ela - t[0]) / air_time_delta
-            self.touch(tpo, y, scrcpy.ACTION_MOVE, tid)
+            self.touch(tpo, y, ACTION_MOVE, tid)
 
         # Play the notes
         for t in todo:
             tid, tpo = t['tid'], t['tpo']
             if t['r'] == 'short':
-                self.touch(tpo, self.y, scrcpy.ACTION_DOWN, tid)
-                self.touch(tpo, self.y, scrcpy.ACTION_UP, tid)
+                self.touch(tpo, self.y, ACTION_DOWN, tid)
+                self.touch(tpo, self.y, ACTION_UP, tid)
             elif t['r'] == 'air':
-                self.touch(tpo, self.y, scrcpy.ACTION_DOWN, tid)
+                self.touch(tpo, self.y, ACTION_DOWN, tid)
                 self.air_queue.append((ela + air_time_delta, tpo, tid))
             else:
                 print("Unknown note type", t)
@@ -206,11 +181,11 @@ class SekaiGamer:
                 t = slide[0]
                 if t['t'] < ela:
                     tid, tpo = t['tid'], t['tpo']
-                    if t.get('airnote') and t['airNote'].get('type') == 'flick':
+                    if t.get('airNote') and t['airNote'].get('type') == 'flick':
                         # Add to flick queue
                         self.air_queue.append((ela + air_time_delta, tpo, tid))
                     else:
-                        self.touch(tpo, self.y, scrcpy.ACTION_UP, tid)
+                        self.touch(tpo, self.y, ACTION_UP, tid)
                     self.slide_ongoing.remove(slide)
                 continue
 
@@ -219,7 +194,7 @@ class SekaiGamer:
             # If we're ready to move to the next note
             if t_to['t'] < ela:
                 slide.pop(0)
-                self.touch(po_to, self.y, scrcpy.ACTION_MOVE, tid)
+                self.touch(po_to, self.y, ACTION_MOVE, tid)
                 continue
 
             # Move to interpolated position
@@ -227,14 +202,14 @@ class SekaiGamer:
             ratio = (ela - t_from['t']) / time_delta
             po_diff = po_to - po_from
             # Check if it's linear or sin
-            if t_from.get('airnote') and 'bend' in t_from['airNote'].get('type'):
+            if t_from.get('airNote') and 'bend' in t_from['airNote'].get('type'):
                 if t_from['airNote']['type'] == 'slide bend middle':
                     po = po_diff * (1 - math.sin(ratio * math.pi / 2 + math.pi / 2)) + po_from
                 else:
                     po = po_diff * math.sin(ratio * math.pi / 2) + po_from
             else:
                 po = po_diff * ratio + po_from
-            self.touch(po, self.y, scrcpy.ACTION_MOVE, tid)
+            self.touch(po, self.y, ACTION_MOVE, tid)
 
         # Slides
         while self.slides and self.slides[0][0]['t'] < ela:
@@ -243,21 +218,14 @@ class SekaiGamer:
             # Press the first note
             t = slide[0]
             tid, tpo = t['tid'], t['tpo']
-            self.touch(tpo, self.y, scrcpy.ACTION_DOWN, tid)
+            self.touch(tpo, self.y, ACTION_DOWN, tid)
 
         # If everything is done, unset global_dict['playing']
         if not self.taps and not self.slides and not self.slide_ongoing and not self.air_queue:
-            print("Done")
-            del global_dict['playing']
-            # late_early_save.write_text(str(self.late_early_adjust))
-            thread = threading.Thread(target=exit_thread)
-            thread.start()
+            printc(f"&aDone! Total delay adjusted: {self.late_early_total} ms")
+            threading.Thread(target=exit_thread).start()
 
 
 def exit_thread():
     time.sleep(5)
     os._exit(0)
-
-
-if __name__ == '__main__':
-    print(ys)

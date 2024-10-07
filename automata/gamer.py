@@ -51,7 +51,7 @@ def interpolate_y() -> tuple[list[tuple[int, int]], tuple[ndarray, ndarray], lis
     delays = np.linspace(dev.delay, dev.delay_2, ny).tolist()
     pt = [[(x, y) for x in range(lc + (rc - lc) // 24, rc, (rc - lc) // 12)]
           for y, (lc, rc) in {y: lc_rc(y) for y in y}.items()]
-    flat = [p for row in pt for p in row]
+    flat = list(([p for row in pt for p in row]))
     rows, cols = zip(*flat)
     query = (np.array(rows), np.array(cols))
     return flat, query, y, delays
@@ -107,7 +107,7 @@ class SekaiGamer:
             for t in s:
                 norm_lane(t)
                 t['tid'] = tid
-                if t['airNote'] and t['airNote']['type'] == 'flick':
+                if t.get('airnote') and t['airNote'].get('type') == 'flick':
                     t['t'] -= air_time_delta / 2
 
         self.taps, self.slides = taps, slides
@@ -206,7 +206,7 @@ class SekaiGamer:
                 t = slide[0]
                 if t['t'] < ela:
                     tid, tpo = t['tid'], t['tpo']
-                    if t['airNote'] and t['airNote']['type'] == 'flick':
+                    if t.get('airnote') and t['airNote'].get('type') == 'flick':
                         # Add to flick queue
                         self.air_queue.append((ela + air_time_delta, tpo, tid))
                     else:
@@ -227,7 +227,7 @@ class SekaiGamer:
             ratio = (ela - t_from['t']) / time_delta
             po_diff = po_to - po_from
             # Check if it's linear or sin
-            if t_from['airNote'] and 'bend' in t_from['airNote']['type']:
+            if t_from.get('airnote') and 'bend' in t_from['airNote'].get('type'):
                 if t_from['airNote']['type'] == 'slide bend middle':
                     po = po_diff * (1 - math.sin(ratio * math.pi / 2 + math.pi / 2)) + po_from
                 else:

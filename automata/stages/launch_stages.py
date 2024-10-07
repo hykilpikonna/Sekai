@@ -37,7 +37,7 @@ class MatchAndClick(SekaiStage):
             'mp_disconnect', 'mp_ready', 
             # Using mp_veteran will match to a random room
             # 'mp_veteran',
-            'mp_create', 'mp_create_confirm', 'mp_create_open', 'mp_create_open_confirm', 'mp_create_again',
+            'mp_create', 'mp_create_confirm', 'mp_create_open_confirm', 'mp_create_open', 'mp_create_again',
             # mp_select will select your specified song, while mp_omakase will leave it to other players
             'mp_select',
             # 'mp_omakase'

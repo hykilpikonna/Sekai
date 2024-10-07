@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { read } from './sekai-sus-reader'
 
-const base_dir = 'C:/Your/Path/Here'
+const base_dir = 'X:\\rhythm-game\\Sekai\\music\\music_score'
 
 // Function to process each difficulty file
 async function processFile(dir: string, file: string) {
@@ -13,10 +13,7 @@ async function processFile(dir: string, file: string) {
     console.log(`File ${ouf} already exists, skipping...`)
     return
   }
-  let sus = readFileSync(join(dir, file), 'utf8')
-  const parsed = read(sus)
-  parsed.slides = parsed.slides.filter((slide?: object) => slide != null)
-  writeFileSync(join(dir, `${difficulty}.json`), JSON.stringify(parsed, null, 2))
+  writeFileSync(ouf, JSON.stringify(read(readFileSync(join(dir, file), 'utf8')), null, 2))
   console.log(`Processed ${dir}/${file}`)
 }
 

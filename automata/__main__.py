@@ -130,7 +130,10 @@ def on_frame(new_frame: ndarray):
 def control():
     # The control thread: Wait for user input
     while True:
-        if input() == 'quit':
+        try:
+            if input() == 'quit':
+                os._exit(0)
+        except (KeyboardInterrupt, EOFError):
             os._exit(0)
 
 

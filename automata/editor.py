@@ -1,3 +1,5 @@
+import argparse
+
 import cv2
 import numpy as np
 from pathlib import Path
@@ -94,6 +96,8 @@ def save_files(frame: np.ndarray, start: tuple[int, int], end: tuple[int, int], 
 
 # Example usage with video capture
 def main() -> None:
+    cv2.namedWindow("Video Frame", cv2.WINDOW_NORMAL)
+
     # Find device
     client = scrcpy.Client(
         device=adb.device_list()[0],
@@ -110,5 +114,26 @@ def main() -> None:
     client.start()
 
 
+def main_image(img: str):
+    # Load and process the provided image
+    image_path = args.image
+    frame = cv2.imread(image_path)
+    if frame is None:
+        print(f"Failed to load image from {image_path}")
+        return
+
+    # Keep the window open until the user closes it
+    while True:
+        on_frame(frame)
+        if cv2.waitKey(1) & 0xFF == 27:  # Press 'Esc' to exit
+            break
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Process an image or use scrcpy for device streaming.")
+    parser.add_argument('--image', type=str, help='Path to the image file to process instead of using scrcpy.')
+    args = parser.parse_args()
+    if not args.image:
+        main()
+    else:
+        main_image(args.image)

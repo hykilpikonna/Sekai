@@ -28,3 +28,10 @@ touch_y = 1000
 bitrate = 8_000_000
 # 视频串流的帧率
 fps = 60
+
+[influx]
+# InfluxDB 服务器地址
+url = 'https://localhost:8086'
+token = ''
+org = ''
+bucket = ''

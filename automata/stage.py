@@ -24,8 +24,6 @@ def load_stages() -> dict[str, SekaiStage]:
     :return: A dictionary of stages
     """
     # Import each module in "stages" package
-    # for loader, module, is_pkg in pkgutil.walk_packages(str(Path(__file__).parent / 'stages')):
-    #     importlib.import_module(f"stages.{module}")
     for p in Path(__file__).parent.glob('stages/*.py'):
         importlib.import_module(f'.stages.{p.stem}', package='automata')
 
@@ -68,28 +66,3 @@ def find_stage(ctx: SekaiStageContext, stages: dict[str, SekaiStage]) -> SekaiSt
         if stage.is_stage(ctx):
             logging.warning(f'[STAGE] Stage {stage_name} is not expected. Expected stages are: {expect}')
             return stage
-
-
-class StageClickImage(SekaiStage):
-    def __init__(self, name: str, image: list[ndarray], next_stage: set[str], next_stage_timeout: float = 60,
-                 offset: tuple[int, int] = (0, 0)):
-        super().__init__(name)
-        self.image = image
-        self.next_stage = next_stage
-        self.next_stage_timeout = next_stage_timeout
-        self.offset = offset
-
-    def is_stage(self, ctx: SekaiStageContext) -> bool:
-        for image in self.image:
-            coord = locate(ctx.frame, image)
-            if coord:
-                ctx.cache["icon"] = coord
-                return True
-
-    def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
-        # Click the image
-        x, y = ctx.cache["icon"]
-        x += self.offset[0]
-        y += self.offset[1]
-        return SekaiStageOp(f"click image for {self.name}", [ATap(x, y)],
-                            self.next_stage, self.next_stage_timeout)

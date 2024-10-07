@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs'
 import { join } from 'path'
-import SekaiSusReader from './sekai-sus-reader'
+import { read } from './sekai-sus-reader'
 
 const base_dir = 'C:/Your/Path/Here'
 
@@ -14,8 +14,8 @@ async function processFile(dir: string, file: string) {
     return
   }
   let sus = readFileSync(join(dir, file), 'utf8')
-  const parsed = SekaiSusReader.Read(sus)
-  parsed.slides = parsed.slides.filter(slide => slide != null)
+  const parsed = read(sus)
+  parsed.slides = parsed.slides.filter((slide?: object) => slide != null)
   writeFileSync(join(dir, `${difficulty}.json`), JSON.stringify(parsed, null, 2))
   console.log(`Processed ${dir}/${file}`)
 }

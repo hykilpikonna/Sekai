@@ -65,7 +65,7 @@ export function read(sus: string): { taps: Note[]; slides: Note[][]; } {
   // Add to result, sort by time, and add a unique ID
   const taps = [...Object.values(shortNotesMap), ...Object.values(airs)]
     .sort((a, b) => a.t - b.t).map(it => ({...it, tid: tid++}))
-  slides.forEach((slide) => { tid++; slide.forEach(note => note.tid = tid++) })
+  slides.forEach((slide) => { tid++; slide.forEach(note => note.tid = tid) })
 
   return { taps, slides }
 }

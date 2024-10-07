@@ -33,7 +33,7 @@ light_threshold = int(0.7 * 255)
 late_early_px = (1017, 604)
 late = np.array((252, 85, 139))[[2, 1, 0]]
 fast = np.array((85, 170, 255))[[2, 1, 0]]
-late_early_ms = 0.5
+late_early_ms = 1
 late_early_save = Path(__file__).parent / "delay.txt"
 
 
@@ -67,6 +67,7 @@ class SekaiGamer:
     # In-game time in nanoseconds
     igt: int = 0
     started: bool = False
+    done: bool = False
 
     # Queue of air notes to be flicked (start ela time, lane, touch_id)
     air_queue: list[tuple[int, int, int]] = []
@@ -98,7 +99,8 @@ class SekaiGamer:
         diff = [0, -1, 1][is_late * 1 + is_fast * 2] * late_early_ms
         self.igt += diff * 1_000_000
         self.late_early_total += diff
-        diff != 0 and printc(f'{'&cLate: -' if is_late else '&bFast: +'}, {abs(diff)} ms')
+        self.late_early_last_adjust = int(time.time_ns() - self.igt) / 1_000_000
+        diff != 0 and printc(f'{'&cLate: -' if is_late else '&bFast: +'}{abs(diff)} ms')
 
     def find_start(self, frame: ndarray) -> None:
         """ Find if we're ready to start """
@@ -131,7 +133,7 @@ class SekaiGamer:
     def on_frame(self, frame: ndarray) -> None:
         # Elapsed ms since the start
         ela = int((time.time_ns() - self.igt) / 1_000_000)
-        if ela < 0 or frame is None:
+        if ela < 0 or frame is None or self.done:
             return
 
         # Hasn't started yet
@@ -139,8 +141,8 @@ class SekaiGamer:
             self.find_start(frame)
             return
 
-        # Detect late/early (in-between delay 0.5s)
-        if self.late_early_last_adjust + 500 < ela:
+        # Detect late/early (in-between delay 0.3s)
+        if self.late_early_last_adjust + 300 < ela:
             color = frame[late_early_px[1], late_early_px[0]]
             self.adjust(np.linalg.norm(color - fast) < 30, np.linalg.norm(color - late) < 30)
 
@@ -224,6 +226,7 @@ class SekaiGamer:
         if not self.taps and not self.slides and not self.slide_ongoing and not self.air_queue:
             printc(f"&aDone! Total delay adjusted: {self.late_early_total} ms")
             threading.Thread(target=exit_thread).start()
+            self.done = True
 
 
 def exit_thread():

@@ -8,6 +8,13 @@ from hypy_utils.logging_utils import setup_logger
 log = setup_logger()
 
 
+class InfluxConfig:
+    url: str
+    token: str
+    org: str
+    bucket: str
+
+
 class DeviceConfig:
     adb_serial: str
     screen_size: tuple[int, int]
@@ -26,6 +33,7 @@ class DeviceConfig:
 
 class Config:
     device: DeviceConfig
+    influx: InfluxConfig
     debug: bool
     image_threshold: float
     frame_delay: float

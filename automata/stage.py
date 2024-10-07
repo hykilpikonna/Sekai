@@ -10,11 +10,7 @@ import importlib
 import logging
 from pathlib import Path
 
-from numpy import ndarray
-
-from .actions import ATap
-from .models import SekaiStage, SekaiStageContext, SekaiStageOp
-from .util import locate
+from .models import SekaiStage, SekaiStageContext
 
 
 def load_stages() -> dict[str, SekaiStage]:
@@ -64,5 +60,6 @@ def find_stage(ctx: SekaiStageContext, stages: dict[str, SekaiStage]) -> SekaiSt
     for stage_name in sorted(set(stages.keys()) - set(expect)):
         stage = stages[stage_name]
         if stage.is_stage(ctx):
-            logging.warning(f'[STAGE] Stage {stage_name} is not expected. Expected stages are: {expect}')
+            if expect:
+                logging.warning(f'[STAGE] Stage {stage_name} is not expected. Expected stages are: {expect}')
             return stage

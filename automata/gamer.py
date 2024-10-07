@@ -128,7 +128,7 @@ class SekaiGamer:
         gray[ys[1]] = 255
         date = time.strftime("%Y%m%d-%H%M%S")
         Path("log").mkdir(exist_ok=True)
-        cv2.imwrite(f"log/{date}.png", gray.T)
+        cv2.imwrite(f"log/{date}.webp", gray.T)
 
     def on_frame(self, frame: ndarray) -> None:
         # Elapsed ms since the start

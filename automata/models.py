@@ -73,7 +73,7 @@ class SekaiStageContext:
         # Save an image screenshot
         date = time.strftime("%Y%m%d-%H%M%S")
         Path("log").mkdir(exist_ok=True)
-        cv2.imwrite(f"log/{date}.png", self.frame)
+        cv2.imwrite(f"log/{date}.webp", self.frame)
 
 
 class SekaiStage(ABC):

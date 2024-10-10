@@ -86,7 +86,8 @@ class ImageFinder:
     def __init__(self, name: str):
         # Load the image finder data from the editor by directory name
         self.name = name
-        p = Path(__file__).parent / 'stages/editor' / name
+        w, h = config.device.screen_size
+        p = Path(__file__).parent / f'stages/editor-{w}x{h}/{name}'
         if not p.is_dir():
             raise FileNotFoundError(f"Image finder {name} not found")
 

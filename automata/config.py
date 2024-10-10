@@ -13,6 +13,7 @@ class InfluxConfig:
     token: str
     org: str
     bucket: str
+    user: str
 
 
 class DeviceConfig:

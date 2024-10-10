@@ -7,6 +7,7 @@ from pathlib import Path
 import cv2
 import imagehash
 import numpy as np
+import pytesseract
 import toml
 from PIL import Image
 from imagehash import ImageHash
@@ -264,6 +265,51 @@ def priority_win():
 
     # Your code here
     print("Running at real-time priority...")
+
+
+def ocr_preprocess_image(img_region: ndarray) -> ndarray:
+    """
+    Preprocess the image region to improve OCR accuracy.
+
+    Args:
+        img_region (numpy.ndarray): The image region to preprocess.
+
+    Returns:
+        numpy.ndarray: The preprocessed image.
+    """
+    # Convert to grayscale
+    gray = cv2.cvtColor(img_region, cv2.COLOR_BGR2GRAY)
+    # Apply thresholding to binarize the image
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # Optionally, apply other preprocessing steps like dilation or erosion
+    # to reduce noise
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2,2))
+    processed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    return processed
+
+
+def ocr_extract_number(img_region: ndarray) -> int | None:
+    """
+    Extracts a numerical value from the given image region using OCR.
+
+    Args:
+        img_region (numpy.ndarray): The image region containing the number.
+
+    Returns:
+        int: The extracted number, or None if no number was found.
+    """
+    # Preprocess the image to enhance OCR accuracy
+    processed_img = ocr_preprocess_image(img_region)
+
+    # Perform OCR using pytesseract
+    custom_config = r'--oem 3 --psm 6 outputbase digits'
+    text = pytesseract.image_to_string(processed_img, config=custom_config)
+
+    # Extract digits from the OCR result
+    digits = ''.join(filter(str.isdigit, text))
+
+    if digits:
+        return int(digits)
 
 
 if __name__ == '__main__':

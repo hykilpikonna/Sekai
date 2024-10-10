@@ -6,3 +6,4 @@ hypy_utils
 pywin32
 influxdb-client
 rich
+pytesseract

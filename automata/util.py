@@ -315,5 +315,5 @@ def ocr_extract_number(img_region: ndarray) -> int | None:
 if __name__ == '__main__':
     # Test album finder
     finder = SongFinder()
-    crop = cv2.imread('stages/editor/song_cover/crop.png')
+    crop = cv2.imread('stages/editor-2160x1080/song_cover/crop.png')
     print(finder.find(crop))

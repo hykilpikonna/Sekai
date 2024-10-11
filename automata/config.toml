@@ -16,6 +16,8 @@ corner_ld = [67, 540]
 corner_lt = [518, 0]
 corner_rt = [563, 0]
 corner_rd = [1012, 540]
+# Early/Late 显示的坐标
+early_late_px = [508, 302]
 # 用来识别谱面开始的竖向线的 Y 坐标
 visual_y = 10
 #delay = 530

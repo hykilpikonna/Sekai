@@ -30,7 +30,7 @@ air_time_delta = 50
 light_threshold = int(0.7 * 255)
 
 # Colors for late/early
-late_early_px = (1017, 604)
+late_early_px = dev.early_late_px
 late = np.array((252, 85, 139))[[2, 1, 0]]
 fast = np.array((85, 170, 255))[[2, 1, 0]]
 late_early_ms = 1

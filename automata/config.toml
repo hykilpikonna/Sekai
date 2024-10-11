@@ -10,7 +10,7 @@ music_path = 'Y:\Mugs\Sekai\sekai-jp-assets\music\music_score\0{ID}_01_rip'
 # 可以指定一个特定的 ADB 设备
 adb_serial = ''
 # 屏幕像素尺寸 (宽, 高)
-screen_size = [1080, 540]
+screen_size = [1080, 536]
 # 下落条的左下、左上、右上、右下四个顶点的坐标
 corner_ld = [67, 540]
 corner_lt = [518, 0]

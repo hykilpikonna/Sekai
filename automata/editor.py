@@ -97,6 +97,7 @@ def save_files(frame: np.ndarray, start: tuple[int, int], end: tuple[int, int], 
 # Example usage with video capture
 def main() -> None:
     cv2.namedWindow("Video Frame", cv2.WINDOW_NORMAL)
+    print(config.device.screen_size[0])
 
     # Find device
     client = scrcpy.Client(

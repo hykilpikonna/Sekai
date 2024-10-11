@@ -162,3 +162,4 @@ cache
 database
 log/
 automata/data/event
+debug/

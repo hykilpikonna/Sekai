@@ -7,7 +7,7 @@ import toml
 if __name__ == '__main__':
 
     path = Path(__file__).parent.parent / 'stages/editor-2160x1080'
-    out_path = path.with_name('editor-1080x540')
+    out_path = path.with_name('editor-1080x536')
 
     # For each directory
     for d in path.glob("**/"):
@@ -28,11 +28,15 @@ if __name__ == '__main__':
                 for i in range(len(meta_data[key])):
                     meta_data[key][i] //= 2
 
-        # Scale the crop image to its size / 2
+        # Scale the crop image to the new size
         crop_data = cv2.resize(crop_data, (crop_data.shape[1] // 2, crop_data.shape[0] // 2))
 
+        sx, sy = meta_data['start']
+        ex, ey = sx + crop_data.shape[1], sy + crop_data.shape[0]
+        meta_data['end'] = [ex, ey]
+
         # Save the metadata and crop image to the new directory
-        out_dir = out_path / d.name
+        out_dir = out_path / d.relative_to(path)
         out_dir.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(out_dir / 'crop.png'), crop_data)
         (out_dir / 'meta.toml').write_text(toml.dumps(meta_data), 'utf-8')

@@ -106,16 +106,21 @@ class ImageFinder:
 
         # Load the crop image (remove 1px border)
         self.crop = cv2.imread(str(p / 'crop.png'))[1:, 1:]
+        if any(x == 0 for x in self.crop.shape):
+            self.crop = cv2.imread(str(p / 'crop.png'))
         self.gray = cv2.cvtColor(self.crop, cv2.COLOR_BGR2GRAY)
 
-    def get_region(self, frame: ndarray) -> ndarray:
+    def get_region(self, frame: ndarray, widen: int = 0) -> ndarray:
         """
         Crop the UI element from the screen frame
 
         :param frame: The screen frame
+        :param widen: The number of pixels to widen the crop
         :return: The cropped UI element
         """
-        return frame[self.start[1]:self.end[1], self.start[0]:self.end[0]]
+        sx, sy = [max(v - widen, 0) for v in self.start]
+        ex, ey = [v + widen for v in self.end]
+        return frame[sy:ey, sx:ex]
 
     def check(self, frame: ndarray) -> tuple[int, int] | None:
         """
@@ -124,13 +129,16 @@ class ImageFinder:
         :param frame: The screen frame (grayscale)
         :return: The center position (including offset) when found, None otherwise
         """
-        region = self.get_region(frame)
+        region = self.get_region(frame, 5)
+
+        # Save region and expected for debug
+        if config.debug:
+            cv2.imwrite(f"debug/{self.name}_region.png", region)
+            cv2.imwrite(f"debug/{self.name}_expected.png", self.gray)
 
         # Check if frame is grayscale
         if len(region.shape) == 3:
             region = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
-
-        assert region.shape == self.gray.shape, f"Region shape mismatch: {region.shape} != {self.gray.shape}"
 
         # Check similarity
         res = max(cv2.matchTemplate(region, self.gray, cv2.TM_CCOEFF_NORMED).flatten())

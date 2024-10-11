@@ -44,9 +44,11 @@ def _loop():
             if ctx.time - ctx.last_op_done > ctx.last_op.next_stage_timeout * 1000:
                 log.error(f"Timeout and have not found the next stage: {ctx.last_op.next_stage}")
                 # Click
-                ctx.tap(config.device.screen_size[0] - 100, config.device.screen_size[1] - 100)
-                ctx.tap(config.device.screen_size[0] - 100, config.device.screen_size[1] - 100)
-                ctx.tap(config.device.screen_size[0] - 100, config.device.screen_size[1] - 100)
+                w, h = config.device.screen_size
+                tx, ty = w * 0.9, h * 0.9
+                ctx.tap(tx, ty)
+                ctx.tap(tx, ty)
+                ctx.tap(tx, ty)
                 # TODO: Handle timeout
                 ctx.last_op_done = ctx.time
             return

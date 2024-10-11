@@ -24,9 +24,10 @@ def lc_rc(y: int) -> tuple[int, int]:
 touch_lc, touch_rc = lc_rc(dev.touch_y)
 
 # Pre-calculate touch positions for each 12 touch areas (this would be 13 values)
+vw, vh = dev.screen_size
 touch_positions = list(range(touch_lc, touch_rc + 1, (touch_rc - touch_lc) // 12))
-air_delta = 400
-air_time_delta = 50
+air_delta = vw // 3
+air_time_delta = 90
 light_threshold = int(0.7 * 255)
 
 # Colors for late/early
@@ -85,8 +86,8 @@ class SekaiGamer:
         def norm_lane(t):
             lane = t['lane'] - 2
             t['tpo'] = (touch_positions[lane] + touch_positions[lane + t['width']]) / 2
-            if t['r'] == 'air' or (t.get('airNote') and t['airNote'].get('type') == 'flick'):
-                t['t'] -= air_time_delta / 2
+            # if t['r'] == 'air' or (t.get('airNote') and t['airNote'].get('type') == 'flick'):
+                # t['t'] -= air_time_delta / 2
 
         [norm_lane(t) for t in self.taps]
         [norm_lane(t) for s in self.slides for t in s]

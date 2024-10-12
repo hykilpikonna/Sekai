@@ -1,20 +1,23 @@
 import os
 import threading
 import time
-from pathlib import Path
+from os import environ
+from typing import Literal
 
 import cv2
 import numpy as np
 import scrcpy
+import uvicorn
 from adbutils import adb
+from fastapi import FastAPI
 from numpy import ndarray
 from scrcpy import LOCK_SCREEN_ORIENTATION_1
 
-from automata.gamer import SekaiGamer
-from automata.util import priority_win
+from .config import log, config, global_dict, HOST_ADDR, get_mode
+from .gamer import SekaiGamer
 from .models import SekaiStageContext, SekaiStage, SekaiStageOp
 from .stage import find_stage, load_stages
-from .config import Config, log, config, global_dict
+from .util import priority_win, ImageFinder, ocr_extract_number
 
 client: scrcpy.Client
 ctx: SekaiStageContext = None
@@ -23,6 +26,25 @@ frame_time = 0
 last_find_stage = 0
 
 ctx_lock = threading.Lock()
+net = FastAPI()
+img_mp_create_open = ImageFinder('mp_create_open')
+img_mp_id = ImageFinder('bmp_id')
+
+
+@net.get("/bmp_room_id")
+def bmp_room_id():
+    # Check if the current frame is mp_create_open
+    if global_dict.get('playing') or not img_mp_create_open.check(ctx.frame_gray):
+        return {"id": None}
+
+    # Find the room id
+    img = img_mp_id.get_region(ctx.frame)
+    # OCR
+    room_id = ocr_extract_number(img)
+    # Zfill to 5
+    room_id = str(room_id).zfill(5)
+
+    return {"id": room_id}
 
 
 def _loop():
@@ -139,12 +161,18 @@ def control():
             os._exit(0)
 
 
-def run():
+def uvicorn_thread():
+    uvicorn.run(net, host="0.0.0.0", port=int(HOST_ADDR.split(":")[-1]))
+
+
+def run(adb_serial: str = None):
     global client, ctx
+
+    adb_serial = adb_serial or config.device.adb_serial or environ.get('ADB_SERIAL')
 
     # Find device
     devices = adb.device_list()
-    device = [v for v in devices if v.serial == config.device.adb_serial] if config.device.adb_serial else devices
+    device = [v for v in devices if v.serial == adb_serial] if adb_serial else devices
     if not device:
         raise ValueError(f"Device with serial {config.device.adb_serial} not found. Available devices: {devices}")
 
@@ -154,7 +182,7 @@ def run():
         lock_screen_orientation=LOCK_SCREEN_ORIENTATION_1,
         max_fps=config.device.fps,
         bitrate=config.device.bitrate,
-        max_width=config.device.screen_size[0]
+        max_width=config.device.screen_size[0],
     )
 
     ctx = SekaiStageContext(client, frame, {}, {}, time.time_ns() // 1_000_000, SekaiStageOp("startup", [], set()))
@@ -169,6 +197,8 @@ def run():
     # Start the client
     client.start(threaded=True)
     threading.Thread(target=control).start()
+    if get_mode() == 'host':
+        threading.Thread(target=uvicorn_thread).start()
     loop()
 
 

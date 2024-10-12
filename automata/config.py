@@ -1,11 +1,14 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import toml
 from hypy_utils import SafeNamespace
 from hypy_utils.logging_utils import setup_logger
+from starlette.config import environ
 
 log = setup_logger()
+
+HOST_ADDR = 'http://violet:19824'
 
 
 class InfluxConfig:
@@ -23,6 +26,7 @@ class DeviceConfig:
     corner_lt: tuple[int, int]
     corner_rt: tuple[int, int]
     corner_rd: tuple[int, int]
+    early_late_px: tuple[int, int]
     visual_y: int
     visual_y2: int
     delay: float
@@ -53,7 +57,15 @@ def _dict_to_namespace(d: dict) -> SafeNamespace:
     return SafeNamespace(**{k: _dict_to_namespace(v) if isinstance(v, dict) else v for k, v in d.items()})
 
 
-config: Config = [toml_to_namespace(Path(f).read_text('utf-8')) for f in ['config.toml', 'automata/config.toml']
+config_paths = ['config.toml', 'automata/config.toml']
+if environ.get('CONFIG_PATH'):
+    config_paths = [environ['CONFIG_PATH']]
+config: Config = [toml_to_namespace(Path(f).read_text('utf-8')) for f in config_paths
                   if Path(f).is_file()][0]
 
+# Valid keys: 'playing'
 global_dict = {}
+
+
+def get_mode() -> Literal['host', 'helper', 'self']:
+    return environ.get('MODE', 'host')

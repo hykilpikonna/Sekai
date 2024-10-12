@@ -4,9 +4,10 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import requests
 
 from ..actions import ATap, ADelay
-from ..config import log, config, global_dict
+from ..config import log, config, global_dict, HOST_ADDR, get_mode
 from ..gamer import SekaiGamer
 from ..models import SekaiStage, SekaiStageContext, SekaiStageOp
 from ..util import ImageFinder, SongFinder
@@ -16,7 +17,7 @@ class MatchAndClick(SekaiStage):
     images: dict[str, ImageFinder]
 
     def __init__(self):
-        super().__init__("0_match_and_click")
+        super().__init__("050_match_and_click")
         # Load images
         self.images = {it: ImageFinder(it) for it in [
             # Buttons for the song result screen
@@ -35,12 +36,12 @@ class MatchAndClick(SekaiStage):
             'solo_start', 'solo_start_play',
             # Multiplayer related
             'mp_disconnect', 'mp_ready', 
-            # Using mp_veteran will match to a random room
-            # 'mp_veteran',
-            'mp_create', 'mp_create_confirm', 'mp_create_open_confirm', 'mp_create_open', 'mp_create_again', 'result_mp_ok',
+            # Create multiplayer room if you're solo or a host
+            {'self': 'mp_create', 'host': 'mp_create_free', 'helper': 'bmp_enter'}[get_mode()],
+            'mp_create_confirm', 'mp_create_open_confirm', 'mp_create_again', 'result_mp_ok',
+            *(['mp_create_open'] if get_mode() == 'self' else []),
             # mp_select will select your specified song, while mp_omakase will leave it to other players
-            'mp_select',
-            # 'mp_omakase'
+            'mp_select' if get_mode() == 'host' else 'mp_omakase',
         ]}
 
     def is_stage(self, ctx: SekaiStageContext) -> bool:
@@ -76,30 +77,87 @@ class MatchAndClick(SekaiStage):
         return SekaiStageOp(f"click {name}", ac, exp)
 
 
+# Wait for host to start the game
+if get_mode() == 'helper':
+    class BMPHelperEnter(SekaiStage):
+        keys: list[ImageFinder]
+        confirm: ImageFinder
+
+        def __init__(self):
+            super().__init__("bmp_enter")
+            self.keys = [ImageFinder(f'bmp_enter_id/{i}') for i in range(0, 10)]
+            self.confirm = ImageFinder('bmp_enter_confirm')
+
+        def is_stage(self, ctx: SekaiStageContext) -> bool:
+            return bool(self.keys[0].check(ctx.frame_gray))
+
+        def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
+            # Get the room ID from the host
+            resp = requests.get(f'{HOST_ADDR}/bmp_room_id').json()
+            if not resp.get('id'):
+                return SekaiStageOp("BMP: Wait for host", [ADelay(1)], {"bmp_enter"})
+
+            # Enter the room ID
+            ops = [ATap(*self.keys[int(i)].center) for i in str(resp['id'])]
+            ops.append(ATap(*self.confirm.center))
+            # After each key, add a short 100ms delay
+            ops = [op for op in ops for op in [op, ADelay(0.1)]]
+            return SekaiStageOp("BMP: Enter room key", ops, {"bmp_enter"})
+
+
+# Wait for matching players to join
+if get_mode() == 'host':
+    class BMPMatching(SekaiStage):
+        img: ImageFinder
+        waits: list[ImageFinder]
+        back: ImageFinder
+
+        def __init__(self):
+            super().__init__("002_wait_mp_matching")
+            self.img = ImageFinder('mp_create_open')
+            self.waits = [ImageFinder(f'bmp_wait_p{i}') for i in range(2, 6)]
+            self.back = ImageFinder('mp_back')
+
+        def is_stage(self, ctx: SekaiStageContext) -> bool:
+            if self.img.check(ctx.frame_gray):
+                if 'mp_matching_since' not in ctx.store:
+                    ctx.store['mp_matching_since'] = time.time()
+                return True
+
+        def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
+            # If we waited longer than 3 minutes, click back and try again
+            # if time.time() - ctx.store['mp_matching_since'] > 3 * 60:
+            #     log.error("MP matching timed out")
+            #     del ctx.store['mp_matching_since']
+            #     return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())
+            return SekaiStageOp("wait_mp_matching", [ADelay(1)], {"wait_mp_matching", "0_match_and_click"})
+
+
 # When it's matching, we don't want to click anything and we also don't want to time out
 # So we just wait until the matching is done
-class SWaitMPMatching(SekaiStage):
-    img: ImageFinder
-    back: ImageFinder
+if get_mode() == 'self':
+    class SWaitMPMatching(SekaiStage):
+        img: ImageFinder
+        back: ImageFinder
 
-    def __init__(self):
-        super().__init__("wait_mp_matching")
-        self.img = ImageFinder('mp_matching')
-        self.back = ImageFinder('mp_back')
+        def __init__(self):
+            super().__init__("wait_mp_matching")
+            self.img = ImageFinder('mp_matching')
+            self.back = ImageFinder('mp_back')
 
-    def is_stage(self, ctx: SekaiStageContext) -> bool:
-        if self.img.check(ctx.frame_gray):
-            if 'mp_matching_since' not in ctx.store:
-                ctx.store['mp_matching_since'] = time.time()
-            return True
+        def is_stage(self, ctx: SekaiStageContext) -> bool:
+            if self.img.check(ctx.frame_gray):
+                if 'mp_matching_since' not in ctx.store:
+                    ctx.store['mp_matching_since'] = time.time()
+                return True
 
-    def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
-        # If we waited longer than 30 seconds, click back and try again
-        if time.time() - ctx.store['mp_matching_since'] > 30:
-            log.error("MP matching timed out")
-            del ctx.store['mp_matching_since']
-            return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())
-        return SekaiStageOp("wait_mp_matching", [ADelay(1)], {"wait_mp_matching", "0_match_and_click"})
+        def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
+            # If we waited longer than 30 seconds, click back and try again
+            if time.time() - ctx.store['mp_matching_since'] > 30:
+                log.error("MP matching timed out")
+                del ctx.store['mp_matching_since']
+                return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())
+            return SekaiStageOp("wait_mp_matching", [ADelay(1)], {"wait_mp_matching", "0_match_and_click"})
 
 
 difficulties = {

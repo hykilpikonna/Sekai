@@ -1,16 +1,11 @@
-import json
 import time
-from pathlib import Path
 
-import cv2
-import numpy as np
 import requests
 
 from ..actions import ATap, ADelay
-from ..config import log, config, global_dict, HOST_ADDR, get_mode
-from ..gamer import SekaiGamer
+from ..config import log, HOST_ADDR, get_mode
 from ..models import SekaiStage, SekaiStageContext, SekaiStageOp
-from ..util import ImageFinder, SongFinder
+from ..util import ImageFinder
 
 
 class MatchAndClick(SekaiStage):
@@ -93,9 +88,15 @@ if get_mode() == 'helper':
 
         def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
             # Get the room ID from the host
-            resp = requests.get(f'{HOST_ADDR}/bmp_room_id').json()
+            resp = {}
+            try:
+                resp = requests.get(f'{HOST_ADDR}/bmp_room_id').json()
+            except requests.RequestException as e:
+                log.error(f"Failed to get room ID: {e}")
             if not resp.get('id'):
                 return SekaiStageOp("BMP: Wait for host", [ADelay(1)], {"bmp_enter"})
+
+            ctx.store['room_id'] = resp['id']
 
             # Enter the room ID
             ops = [ATap(*self.keys[int(i)].center) for i in str(resp['id'])]
@@ -106,17 +107,19 @@ if get_mode() == 'helper':
 
 
 # Wait for matching players to join
-if get_mode() == 'host':
+if get_mode() != 'self':
     class BMPMatching(SekaiStage):
         img: ImageFinder
         waits: list[ImageFinder]
         back: ImageFinder
+        launch: ImageFinder
 
         def __init__(self):
             super().__init__("002_wait_mp_matching")
-            self.img = ImageFinder('mp_create_open')
+            self.img = ImageFinder('bmp_invite')
             self.waits = [ImageFinder(f'bmp_wait_p{i}') for i in range(2, 6)]
             self.back = ImageFinder('mp_back')
+            self.launch = ImageFinder('bmp_launch')
 
         def is_stage(self, ctx: SekaiStageContext) -> bool:
             if self.img.check(ctx.frame_gray):
@@ -130,7 +133,13 @@ if get_mode() == 'host':
             #     log.error("MP matching timed out")
             #     del ctx.store['mp_matching_since']
             #     return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())
-            return SekaiStageOp("wait_mp_matching", [ADelay(1)], {"wait_mp_matching", "0_match_and_click"})
+
+            # If I'm the helper but I've been granted the host, it means that the host has quit
+            # So I should quit and wait for the host to start again
+            if get_mode() == 'helper' and self.launch.check(ctx.frame_gray):
+                return SekaiStageOp("BMP: The host has quit so I quit too", [ATap(*self.back.center)], set())
+
+            return SekaiStageOp("BMP: Waiting", [ADelay(1)], {"wait_mp_matching", "0_match_and_click"})
 
 
 # When it's matching, we don't want to click anything and we also don't want to time out
@@ -158,82 +167,3 @@ if get_mode() == 'self':
                 del ctx.store['mp_matching_since']
                 return SekaiStageOp("mp_back", [ATap(*self.back.center)], set())
             return SekaiStageOp("wait_mp_matching", [ADelay(1)], {"wait_mp_matching", "0_match_and_click"})
-
-
-difficulties = {
-    'master': (204, 51, 255),
-    'expert': (255, 68, 119),
-    'hard': (255, 204, 0),
-    'normal': (51, 204, 255),
-    'easy': (17, 221, 119)
-}
-
-
-def find_difficulty(difficulty_img: np.ndarray) -> str:
-    # Get the average color
-    avg_color = np.mean(difficulty_img[:, 0], axis=0)
-    # Convert bgr to rgb
-    avg_color = avg_color[[2, 1, 0]]
-    diffs = difficulties.items()
-    arr = np.array([color for _, color in diffs])
-    dist = np.linalg.norm(arr - avg_color, axis=1)
-    idx = np.argmin(dist)
-    return list(diffs)[idx][0]
-
-
-class SongStart(SekaiStage):
-    song_start_if: ImageFinder
-
-    def __init__(self):
-        super().__init__("song_start")
-        self.song_start_if = ImageFinder('song_start')
-
-    def is_stage(self, ctx: SekaiStageContext) -> bool:
-        return bool(self.song_start_if.check(ctx.frame_gray))
-
-    def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
-        # Pass a delay to ensure the song starts
-        ctx.store['song_start_next'] = True
-        return SekaiStageOp("song_start", [ADelay(0.6)], {'song_start_next'})
-
-
-class SongStartNext(SekaiStage):
-    song_cover_if: ImageFinder
-    song_difficulty_if: ImageFinder
-    song_finder: SongFinder
-
-    def __init__(self):
-        super().__init__("song_start_next")
-        self.song_cover_if = ImageFinder('song_cover')
-        self.song_difficulty_if = ImageFinder('song_difficulty')
-        self.song_finder = SongFinder()
-
-    def is_stage(self, ctx: SekaiStageContext) -> bool:
-        return ctx.store.get('song_start_next', False)
-
-    def operate(self, ctx: SekaiStageContext) -> SekaiStageOp:
-        del ctx.store['song_start_next']
-        # Get the song cover
-        cover = self.song_cover_if.get_region(ctx.frame)
-        song_id, song = self.song_finder.find(cover)
-
-        # Check the difficulty using color similarity
-        diff = self.song_difficulty_if.get_region(ctx.frame)
-        d = find_difficulty(diff)
-
-        # Load notes
-        p = Path(config.music_path.replace('{ID}', str(song_id).zfill(3))) / f'{d}.json'
-        if not p.exists():
-            log.error(f"Notes not found: {p}")
-            return SekaiStageOp("song_start", [ADelay(0.01)], set())
-        notes = json.loads(p.read_text('utf-8'))
-
-        log.info(f"> Song start: {song['title']} ({d})")
-        global_dict['playing'] = SekaiGamer(ctx.client, notes)
-
-        return SekaiStageOp("song_start", [ADelay(0.01)], set())
-
-
-if __name__ == '__main__':
-    img = cv2.imread(r'C:\ws\Sekai\Code\stages\editor\test\crop.png')[1:, 1:]
-    print(find_difficulty(img))

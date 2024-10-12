@@ -1,0 +1,32 @@
+debug = false
+# TM_CCOEFF 图像匹配的阈值 (0.0 ~ 1.0)
+image_threshold = 0.9
+# 游戏界面操作检测画面的间隔时间 (秒)
+frame_delay = 0.3
+# 游戏谱面路径
+music_path = '..\music\music_score\0{ID}_01_rip'
+
+[device]
+# 可以指定一个特定的 ADB 设备
+adb_serial = ''
+# 屏幕像素尺寸 (宽, 高)
+screen_size = [1080, 536]
+# 下落条的左下、左上、右上、右下四个顶点的坐标
+corner_ld = [67, 540]
+corner_lt = [518, 0]
+corner_rt = [563, 0]
+corner_rd = [1012, 540]
+# Early/Late 显示的坐标
+early_late_px = [508, 302]
+# 用来识别谱面开始的竖向线的 Y 坐标
+visual_y = 10
+#delay = 530
+delay = 600
+visual_y2 = 120
+delay_2 = 110
+# 模拟触摸的 Y 坐标
+touch_y = 500
+# 视频串流的码率
+bitrate = 8_000_000
+# 视频串流的帧率
+fps = 60

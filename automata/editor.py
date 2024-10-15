@@ -116,6 +116,7 @@ def main() -> None:
 
 
 def main_image(img: str):
+    cv2.namedWindow("Video Frame", cv2.WINDOW_NORMAL)
     # Load and process the provided image
     image_path = args.image
     frame = cv2.imread(image_path)

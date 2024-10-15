@@ -8,6 +8,8 @@ import cv2
 import scrcpy
 from numpy import ndarray
 
+from automata.config import get_log_path
+
 
 class Action(ABC):
     started: bool = False
@@ -72,8 +74,8 @@ class SekaiStageContext:
     def save(self):
         # Save an image screenshot
         date = time.strftime("%Y%m%d-%H%M%S")
-        Path("log").mkdir(exist_ok=True)
-        cv2.imwrite(f"log/{date}.webp", self.frame)
+        get_log_path().mkdir(exist_ok=True)
+        cv2.imwrite(str(get_log_path() / f"{date}.webp"), self.frame)
 
 
 class SekaiStage(ABC):

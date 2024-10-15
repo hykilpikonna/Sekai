@@ -8,7 +8,7 @@ from starlette.config import environ
 
 log = setup_logger()
 
-HOST_ADDR = 'http://violet:19824'
+HOST_ADDR = 'http://10.0.0.17:19824'
 
 
 class InfluxConfig:
@@ -69,3 +69,7 @@ global_dict = {}
 
 def get_mode() -> Literal['host', 'helper', 'self']:
     return environ.get('MODE', 'host')
+
+
+def get_log_path() -> Path:
+    return Path(environ.get('LOG_PATH', 'log'))

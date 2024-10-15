@@ -11,7 +11,7 @@ from hypy_utils import printc
 from numpy import ndarray
 
 from . import util
-from .config import config, global_dict
+from .config import config, global_dict, get_log_path
 
 dev = config.device
 
@@ -128,8 +128,8 @@ class SekaiGamer:
         # For debug: draw a line on the visual line and save the frame
         gray[ys[1]] = 255
         date = time.strftime("%Y%m%d-%H%M%S")
-        Path("log").mkdir(exist_ok=True)
-        cv2.imwrite(f"log/{date}.webp", gray.T)
+        get_log_path().mkdir(exist_ok=True)
+        cv2.imwrite(str(get_log_path() / f"{date}.webp"), gray.T)
 
     def on_frame(self, frame: ndarray) -> None:
         # Elapsed ms since the start

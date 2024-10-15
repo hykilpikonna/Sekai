@@ -24,6 +24,8 @@ class MatchAndClick(SekaiStage):
             'home_announcement_detect',
             # Difficulty select
             'master_not_selected',
+            # Errors
+            'communication_error_back',
             # Home live button (TODO: Make choosing between solo and multi a config option)
             # 'home_live_solo',
             'home_live_multi',

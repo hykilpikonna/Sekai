@@ -1,6 +1,6 @@
 import json
 
-from sekai.consts import *
+from consts import *
 
 import plotly.express as px
 import pandas as pd

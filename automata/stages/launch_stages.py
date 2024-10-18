@@ -24,8 +24,6 @@ class MatchAndClick(SekaiStage):
             'home_announcement_detect',
             # Difficulty select
             'master_not_selected',
-            # Errors
-            'communication_error_back',
             # Home live button (TODO: Make choosing between solo and multi a config option)
             # 'home_live_solo',
             'home_live_multi',
@@ -39,6 +37,8 @@ class MatchAndClick(SekaiStage):
             *(['mp_create_open'] if get_mode() == 'self' else []),
             # mp_select will select your specified song, while mp_omakase will leave it to other players
             'mp_select' if get_mode() == 'host' else 'mp_omakase',
+            # Errors
+            'communication_error_back',
         ]}
 
     def is_stage(self, ctx: SekaiStageContext) -> bool:

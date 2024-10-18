@@ -24,6 +24,7 @@ ctx: SekaiStageContext = None
 frame: ndarray = np.zeros((1, 1, 3), np.uint8)
 frame_time = 0
 last_find_stage = 0
+timeout_count = 0
 
 ctx_lock = threading.Lock()
 net = FastAPI()
@@ -48,7 +49,7 @@ def bmp_room_id():
 
 
 def _loop():
-    global ctx, last_find_stage
+    global ctx, last_find_stage, timeout_count
 
     # Check if last find stage is too recent (< 1s)
     if ctx.time - last_find_stage < 1000:
@@ -73,9 +74,19 @@ def _loop():
                 ctx.tap(tx, ty)
                 # TODO: Handle timeout
                 ctx.last_op_done = ctx.time
+                timeout_count += 1
+
+            # If we waited a minute and still couldn't find the next stage, restart the app
+            if timeout_count > 20:
+                log.error("Too many timeouts, try restarting")
+                # Restart the app
+                client.device.shell('am force-stop com.sega.pjsekai')
+                time.sleep(2)
+
             return
 
         # Perform the operation
+        timeout_count = 0
         log.info(f"[{ctx.time}] Entered stage {stage.name}")
         op = stage.operate(ctx)
         log.info(f"> Performing operation {op.name}")
